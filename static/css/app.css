@@ -30,6 +30,9 @@
   text-decoration: none;
   transition: top 0.15s ease;
 }
+/* Any focus, not just keyboard — a screen-reader user reaching this
+ * link programmatically should also see it moved on-screen. */
+.skip-to-content:focus,
 .skip-to-content:focus-visible {
   top: 8px;
   outline: 3px solid #22d3ee;
