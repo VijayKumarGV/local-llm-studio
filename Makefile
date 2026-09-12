@@ -4,7 +4,8 @@
 SHELL := /usr/bin/env bash
 
 .PHONY: help run stop restart logs shell dev test lint format typecheck audit \
-        cov build image compose-up compose-down compose-logs backup migrate
+        cov build image compose-up compose-down compose-logs backup migrate \
+        first-run
 
 help:  ## Show this help.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -60,3 +61,6 @@ logs:           ## Tail the studio container logs.
 
 shell:          ## Open a shell inside the running studio container.
 	docker compose exec studio /bin/bash
+
+first-run:      ## Pull models, curate corpus, provision expert workspaces.
+	./scripts/first_run.sh
