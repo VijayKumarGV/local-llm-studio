@@ -25,10 +25,12 @@ from backend import (
     artifacts,
     audit_log,
     backup,
+    cost_ledger,
     database,
     extractors,
     feedback,
     long_term_memory,
+    metrics,
     model_capabilities,
     rag,
     session_notes,
@@ -95,6 +97,12 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Request-ID"],
 )
+
+metrics.instrument(app)  # exposes /metrics; safe to call once at import time
+
+from backend import tracing  # noqa: E402 — imported after `app` is defined
+
+tracing.setup(app)  # no-op unless OTEL_EXPORTER_OTLP_ENDPOINT is set
 
 orchestrator = AgentOrchestrator()
 
@@ -188,6 +196,17 @@ def audit_list(limit: int = 100, action: str | None = None, resource_type: str |
     return {"status": "success", "count": len(entries), "entries": entries}
 
 
+@app.get("/api/cost/summary")
+async def cost_summary(group_by: str = "model", since: str | None = None):
+    """Aggregate the token ledger. group_by ∈ model | project | day.
+    `since` is an ISO timestamp (created_at >= since)."""
+    try:
+        rows = cost_ledger.summary(since_iso=since, group_by=group_by)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"status": "success", "group_by": group_by, "since": since, "rows": rows}
+
+
 @app.get("/api/rag/query")
 async def rag_query(q: str, project_id: str | None = None, conversation_id: str | None = None, top_k: int = 6):
     """Debug endpoint: run retrieval and return hits + hybrid scores. Lets you
@@ -221,6 +240,7 @@ async def health():
         embed_ready = any("nomic-embed" in m.get("name", "") for m in models)
     except Exception as e:
         log.warning("health: ollama unreachable: %s", e)
+    metrics.ollama_up.set(1 if ollama_up else 0)
     return {
         "status": "ok" if ollama_up else "degraded",
         "ollama": {"up": ollama_up, "models": model_count},
@@ -481,7 +501,10 @@ async def feedback_record(req: Request):
     rating = int(body.get("rating", 0))
     if not mid:
         raise HTTPException(status_code=400, detail="message_id required")
-    return feedback.record(mid, rating, body.get("note", ""))
+    result = feedback.record(mid, rating, body.get("note", ""))
+    if result.get("status") == "success":
+        metrics.record_feedback(rating)
+    return result
 
 
 @app.get("/api/feedback")
@@ -694,6 +717,47 @@ async def save_settings(req: Request):
 # ==========================================
 
 
+async def _instrumented_stream(agen, model_name: str):
+    """Wrap the orchestrator's SSE generator with metrics: active_streams
+    gauge for the whole lifespan, chat_requests_total labelled by the
+    terminal event, and tool_calls_total sniffed from tool_end events."""
+    status = "error"  # if we crash mid-stream, we still record it
+    with metrics.track_stream():
+        try:
+            async for chunk in agen:
+                if chunk.startswith("event: done"):
+                    status = "success"
+                elif chunk.startswith("event: cancelled"):
+                    status = "cancelled"
+                elif chunk.startswith("event: error"):
+                    status = "error"
+                elif chunk.startswith("event: tool_end"):
+                    metrics.record_tool_call(*_extract_tool_status(chunk))
+                elif chunk.startswith("event: tool_denied"):
+                    metrics.record_tool_call(_extract_tool_name(chunk), "denied")
+                yield chunk
+        finally:
+            metrics.record_chat_request(model_name, status)
+
+
+def _extract_tool_status(chunk: str) -> tuple[str, str]:
+    """Parse an SSE `event: tool_end` chunk for (tool_name, status)."""
+    import json as _json
+
+    for line in chunk.splitlines():
+        if line.startswith("data: "):
+            try:
+                d = _json.loads(line[6:])
+                return str(d.get("tool") or "unknown"), str(d.get("status") or "unknown")
+            except _json.JSONDecodeError:
+                pass
+    return "unknown", "unknown"
+
+
+def _extract_tool_name(chunk: str) -> str:
+    return _extract_tool_status(chunk)[0]
+
+
 @app.post("/api/chat/stream")
 @limiter.limit(LIMIT_CHAT_STREAM)
 async def stream_chat(request: Request, req: ChatRequest):
@@ -701,15 +765,19 @@ async def stream_chat(request: Request, req: ChatRequest):
     Dedicated Multi-Step Agent Execution Endpoint.
     Delegates to AgentOrchestrator for autonomous tool loops, citations, and artifacts.
     """
+    model_name = req.model or "qwen2.5:32b"
     return StreamingResponse(
-        orchestrator.run_agent_loop(
-            conversation_id=req.conversation_id,
-            user_message=req.message,
-            model_name=req.model or "qwen2.5:32b",
-            enable_web_search=req.enable_web_search or False,
-            enable_code_execution=req.enable_code_execution or False,
-            think_deeply=req.think_deeply or False,
-            attachments=req.attachments or [],
+        _instrumented_stream(
+            orchestrator.run_agent_loop(
+                conversation_id=req.conversation_id,
+                user_message=req.message,
+                model_name=model_name,
+                enable_web_search=req.enable_web_search or False,
+                enable_code_execution=req.enable_code_execution or False,
+                think_deeply=req.think_deeply or False,
+                attachments=req.attachments or [],
+            ),
+            model_name,
         ),
         media_type="text/event-stream",
     )

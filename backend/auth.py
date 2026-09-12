@@ -34,8 +34,11 @@ log = logging.getLogger("studio.auth")
 
 COOKIE_NAME = "studio_token"
 
+# `/metrics` is public: the server binds to 127.0.0.1 by default, so
+# access is already gated at the network level, and a local Prometheus
+# scraper doesn't have (or want) a session cookie.
 _UNAUTHED_PREFIXES = ("/api/health", "/auth", "/static", "/favicon")
-_UNAUTHED_PATHS = {"/"}
+_UNAUTHED_PATHS = {"/", "/metrics"}
 
 _TOKEN: str | None = None
 

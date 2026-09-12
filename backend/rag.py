@@ -28,7 +28,7 @@ from typing import Any
 import httpx
 import numpy as np
 
-from backend import database, prompts
+from backend import database, metrics, prompts, tracing
 from backend.ollama_client import get_ollama_client
 
 DEFAULT_EMBED_MODEL = "nomic-embed-text"
@@ -525,6 +525,39 @@ def _fts_query(raw: str) -> str:
 
 
 async def retrieve(
+    query: str,
+    conversation_id: str | None = None,
+    project_id: str | None = None,
+    top_k: int = 6,
+    candidates_per_source: int = 30,
+    use_hyde: bool | None = None,
+    use_reranker: bool | None = None,
+    use_mmr: bool | None = None,
+) -> list[dict[str, Any]]:
+    """Instrumented wrapper — records latency histogram + hit-count histogram
+    around the real retrieval, and emits an OTel span. See `_retrieve_impl`
+    for the pipeline."""
+    with tracing.tracer().start_as_current_span("rag.retrieve") as span:
+        span.set_attribute("rag.top_k", top_k)
+        if project_id:
+            span.set_attribute("rag.project_id", project_id)
+        with metrics.time_retrieval():
+            hits = await _retrieve_impl(
+                query=query,
+                conversation_id=conversation_id,
+                project_id=project_id,
+                top_k=top_k,
+                candidates_per_source=candidates_per_source,
+                use_hyde=use_hyde,
+                use_reranker=use_reranker,
+                use_mmr=use_mmr,
+            )
+        span.set_attribute("rag.hits", len(hits))
+    metrics.record_retrieval_hits(len(hits))
+    return hits
+
+
+async def _retrieve_impl(
     query: str,
     conversation_id: str | None = None,
     project_id: str | None = None,
