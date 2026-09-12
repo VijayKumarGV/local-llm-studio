@@ -554,10 +554,25 @@ def get_settings() -> dict[str, str]:
         rows = cursor.fetchall()
         for r in rows:
             default_settings[r["key"]] = r["value"]
-    return default_settings
+    # Overlay any sensitive keys from macOS Keychain, taking precedence
+    # over whatever was in SQLite. Non-sensitive keys are untouched.
+    from backend import secure_settings
+
+    return secure_settings.merge_into(default_settings)
 
 
-def save_setting(key: str, value: str):
+def save_setting(key: str, value: str) -> None:
+    """Persist a setting. Sensitive keys are diverted to Keychain instead
+    of the SQLite settings table so they never touch the plaintext DB."""
+    from backend import secure_settings
+
+    if secure_settings.is_sensitive(key):
+        secure_settings.set_secret(key, str(value))
+        # Also remove any stale plaintext copy from SQLite.
+        with get_connection() as conn:
+            conn.execute("DELETE FROM settings WHERE key = ?", (key,))
+            conn.commit()
+        return
     with get_connection() as conn:
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, str(value)))
         conn.commit()
