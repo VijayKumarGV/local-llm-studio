@@ -1,0 +1,7 @@
+# Build-time deps for producing the native macOS .app bundle.
+# Not installed into the runtime image / regular dev venv — see the top of
+# packaging/build_app.py for usage.
+
+pyinstaller>=6.10.0        # bundles Python + deps into a .app
+rumps>=0.4.0               # macOS menu-bar helper (used by tray_app.py)
+pynput>=1.7.7              # global hotkey (⌥⌘Space)
