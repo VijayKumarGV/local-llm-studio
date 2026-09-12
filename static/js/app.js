@@ -8,6 +8,9 @@ import { api } from "./api.js";
 import { parseMarkdown, escapeHtml } from "./markdown.js";
 import { createToolCardHtml, createCitationCardHtml } from "./agent_ui.js";
 import { renderArtifactDrawer } from "./artifacts_ui.js";
+import { maybeShowWizard } from "./onboarding.js";
+import { installShortcutsHelp } from "./keybindings.js";
+import { pollHealthAndSurfaceIssues, withRetry, showBanner } from "./recovery.js";
 
 // DOM Elements
 const DOM = {
@@ -75,6 +78,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   } else {
     createNewConversation();
   }
+
+  // Non-blocking: pops the setup wizard iff /api/onboarding/status reports
+  // needs_setup and the user hasn't previously dismissed it.
+  maybeShowWizard();
+  // Also non-blocking: surface a recovery banner if ollama is unreachable
+  // or the embed model is missing.
+  pollHealthAndSurfaceIssues();
 });
 
 async function loadInitialData() {
@@ -258,6 +268,12 @@ function setupEventListeners() {
   });
 
   DOM.composerTextarea?.addEventListener("keydown", (e) => {
+    // ⌘↵ / Ctrl↵ always sends, regardless of the enter_to_send setting.
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      sendMessage();
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       if (state.settings.enter_to_send !== "false") {
         e.preventDefault();
@@ -344,6 +360,26 @@ function setupEventListeners() {
       e.preventDefault();
       openSettingsModal();
     }
+    // ⌘/ — focus composer
+    if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+      e.preventDefault();
+      DOM.composerTextarea?.focus();
+    }
+    // ⌘⇧R — regenerate last assistant message
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "r") {
+      e.preventDefault();
+      const btn = document.querySelector("[data-action='regenerate']");
+      if (btn) btn.click();
+    }
+    // ⌘⇧M — cycle model selector
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "m") {
+      e.preventDefault();
+      const sel = DOM.modelSelector;
+      if (sel && sel.options.length > 0) {
+        sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
+        sel.dispatchEvent(new Event("change"));
+      }
+    }
     if (e.key === "Escape") {
       closeAllModals();
       hideContextMenu();
@@ -351,6 +387,10 @@ function setupEventListeners() {
       if (state.isStreaming) stopGeneration();
     }
   });
+  // ⌘↵ in the composer sends the message; already wired inside the
+  // textarea keydown handler above (checks metaKey/ctrlKey + Enter).
+  // `?` overlay:
+  installShortcutsHelp();
 
   window.addEventListener("click", () => hideContextMenu());
 }
@@ -415,6 +455,16 @@ function renderProjects() {
     };
     DOM.projectsList.appendChild(li);
   });
+
+  // Empty state — only "All Workspaces" is present.
+  if (state.projects.length === 0) {
+    const li = document.createElement("li");
+    li.className = "nav-item empty-cta";
+    li.style.cssText = "color: var(--text-muted); cursor: pointer; font-size: 0.85rem;";
+    li.innerHTML = `<span class="nav-item-title">＋ Create your first workspace…</span>`;
+    li.onclick = () => document.getElementById("btnNewProject")?.click();
+    DOM.projectsList.appendChild(li);
+  }
 }
 
 function renderConversations() {
@@ -661,10 +711,17 @@ function renderEmptyState() {
       </div>
     </div>
     <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">
-      Tip: Enable <strong>Web Search</strong> or <strong>Code Exec</strong> below for agent mode · <code>Ctrl+K</code> to search history
+      Tip: Press <code>?</code> for shortcuts · <code>⌘K</code> to search · <a href="#" id="relaunchWizard" style="color:var(--accent-cyan)">Run setup wizard again</a>
     </div>
   `;
   DOM.messagesViewport.appendChild(div);
+  const relaunch = div.querySelector("#relaunchWizard");
+  if (relaunch) {
+    relaunch.addEventListener("click", (e) => {
+      e.preventDefault();
+      maybeShowWizard({ force: true });
+    });
+  }
 }
 
 window.quickPrompt = function(text) {
@@ -1029,18 +1086,28 @@ window.closeArtifactDrawer = function() {
 // ==========================================
 
 async function uploadFile(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-  if (state.currentConversationId) formData.append("conversation_id", state.currentConversationId);
+  const build = () => {
+    const fd = new FormData();
+    fd.append("file", file);
+    if (state.currentConversationId) fd.append("conversation_id", state.currentConversationId);
+    return fd;
+  };
 
   try {
-    const data = await api.uploadFile(formData);
+    const data = await withRetry(() => api.uploadFile(build()), { tries: 3, baseMs: 500 });
     if (data.status === "success") {
       state.activeAttachments.push(data.file);
       renderAttachmentChips();
+    } else if (data.error) {
+      throw new Error(data.error);
     }
   } catch (err) {
-    alert("Upload failed: " + err.message);
+    showBanner({
+      key: `upload-fail-${file.name}`,
+      tone: "error",
+      message: `Upload failed for <code>${escapeHtml(file.name)}</code>: ${escapeHtml(String(err.message || err))}`,
+      actions: [{ label: "Retry", onClick: () => uploadFile(file) }],
+    });
   }
 }
 
