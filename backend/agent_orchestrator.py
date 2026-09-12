@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-from backend import agent_tools, artifacts, citations, database, prompt_safety, prompts, security
+from backend import agent_tools, artifacts, citations, cost_ledger, database, metrics, prompt_safety, prompts, security
 from backend.context_manager import prepare_compacted_context
 from backend.model_capabilities import get_model_capabilities, validate_attachments_for_model
 from backend.ollama_client import get_ollama_client
@@ -466,9 +466,24 @@ class AgentOrchestrator:
                         if chunk.get("done"):
                             got_done = True
                             eval_count = chunk.get("eval_count", total_tokens)
+                            prompt_eval_count = chunk.get("prompt_eval_count", 0)
                             eval_dur_ns = chunk.get("eval_duration", 1)
                             if eval_dur_ns > 0:
                                 final_tps = round(eval_count / (eval_dur_ns / 1e9), 1)
+                            # Best-effort token bookkeeping — both are no-ops
+                            # on zero inputs and swallow errors.
+                            metrics.record_tokens(
+                                model_name,
+                                prompt_tokens=prompt_eval_count,
+                                completion_tokens=eval_count,
+                            )
+                            cost_ledger.record(
+                                conversation_id=conversation_id,
+                                project_id=conv.get("project_id"),
+                                model=model_name,
+                                prompt_tokens=prompt_eval_count,
+                                completion_tokens=eval_count,
+                            )
                             break
 
                 if not got_done:
