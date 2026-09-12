@@ -22,6 +22,14 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: write    # needed to attach assets to the GitHub Release
+    # `secrets.*` cannot appear inside step-level `if:` conditions —
+    # GitHub's workflow parser rejects the file at load time when it
+    # does. Route each presence check through job-level `env` here,
+    # then reference env.HAS_* in step `if:`.
+    env:
+      HAS_SIGNING_CERT: ${{ secrets.APPLE_DEV_ID_CERT_P12 != '' }}
+      HAS_SIGNING_IDENTITY: ${{ secrets.APPLE_DEV_ID_IDENTITY != '' }}
+      HAS_NOTARY_PW: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,7 +56,7 @@ jobs:
       # APPLE_DEV_ID_CERT_PASSWORD, APPLE_DEV_ID_IDENTITY, APPLE_ID,
       # APPLE_TEAM_ID, APPLE_APP_SPECIFIC_PASSWORD.
       - name: Import signing certificate
-        if: ${{ github.event.inputs.dry_run != 'true' && secrets.APPLE_DEV_ID_CERT_P12 != '' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && env.HAS_SIGNING_CERT == 'true' }}
         env:
           CERT_P12: ${{ secrets.APPLE_DEV_ID_CERT_P12 }}
           CERT_PASSWORD: ${{ secrets.APPLE_DEV_ID_CERT_PASSWORD }}
@@ -68,13 +76,13 @@ jobs:
           rm "$RUNNER_TEMP/cert.p12"
 
       - name: Codesign .app
-        if: ${{ github.event.inputs.dry_run != 'true' && secrets.APPLE_DEV_ID_IDENTITY != '' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && env.HAS_SIGNING_IDENTITY == 'true' }}
         env:
           APPLE_DEV_ID: ${{ secrets.APPLE_DEV_ID_IDENTITY }}
         run: make sign
 
       - name: Notarize + staple
-        if: ${{ github.event.inputs.dry_run != 'true' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && env.HAS_NOTARY_PW == 'true' }}
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
