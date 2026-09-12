@@ -48,7 +48,7 @@ jobs:
       # APPLE_DEV_ID_CERT_PASSWORD, APPLE_DEV_ID_IDENTITY, APPLE_ID,
       # APPLE_TEAM_ID, APPLE_APP_SPECIFIC_PASSWORD.
       - name: Import signing certificate
-        if: ${{ !inputs.dry_run && secrets.APPLE_DEV_ID_CERT_P12 != '' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && secrets.APPLE_DEV_ID_CERT_P12 != '' }}
         env:
           CERT_P12: ${{ secrets.APPLE_DEV_ID_CERT_P12 }}
           CERT_PASSWORD: ${{ secrets.APPLE_DEV_ID_CERT_PASSWORD }}
@@ -68,13 +68,13 @@ jobs:
           rm "$RUNNER_TEMP/cert.p12"
 
       - name: Codesign .app
-        if: ${{ !inputs.dry_run && secrets.APPLE_DEV_ID_IDENTITY != '' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && secrets.APPLE_DEV_ID_IDENTITY != '' }}
         env:
           APPLE_DEV_ID: ${{ secrets.APPLE_DEV_ID_IDENTITY }}
         run: make sign
 
       - name: Notarize + staple
-        if: ${{ !inputs.dry_run && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' }}
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -93,7 +93,7 @@ jobs:
           if-no-files-found: error
 
       - name: Attach to GitHub Release
-        if: ${{ !inputs.dry_run && startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ github.event.inputs.dry_run != 'true' && startsWith(github.ref, 'refs/tags/') }}
         uses: softprops/action-gh-release@v2
         with:
           files: dist/LocalLLMStudio-*.app.zip
