@@ -18,6 +18,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from backend import (
     artifacts,
@@ -35,6 +37,7 @@ from backend.auth import COOKIE_NAME, auth_middleware, load_or_create_token
 from backend.middleware import RequestIdFilter, request_context_middleware
 from backend.migrations import apply_migrations
 from backend.ollama_client import close_ollama_client, get_ollama_client
+from backend.rate_limit import LIMIT_CHAT_STREAM, LIMIT_COMPARE, LIMIT_SANDBOX, LIMIT_UPLOAD, limiter
 from backend.security_headers import security_headers_middleware
 
 logging.basicConfig(
@@ -66,7 +69,11 @@ async def lifespan(app: FastAPI):
     await close_ollama_client()
 
 
-app = FastAPI(title="Local LLM Studio API — M4 Pro Edition", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Local LLM Studio API — M4 Pro Edition", version="0.3.0", lifespan=lifespan)
+
+# Rate limiter — 120 req/min by default, tighter on hot endpoints below.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 # Middleware registration is INSIDE-OUT — the last one registered becomes
 # the OUTERMOST wrapper. We want:
@@ -383,8 +390,12 @@ def download_artifact(artifact_id: str):
 
 
 @app.post("/api/files/upload")
+@limiter.limit(LIMIT_UPLOAD)
 async def upload_file(
-    file: UploadFile = File(...), conversation_id: str | None = Form(None), project_id: str | None = Form(None)
+    request: Request,
+    file: UploadFile = File(...),
+    conversation_id: str | None = Form(None),
+    project_id: str | None = Form(None),
 ):
     try:
         fid = str(uuid.uuid4())
@@ -450,7 +461,9 @@ def feedback_get(message_id: str | None = None, conversation_id: str | None = No
 
 
 @app.post("/api/chat/compare")
-async def chat_compare(req: Request):
+@limiter.limit(LIMIT_COMPARE)
+async def chat_compare(request: Request):
+    req = request
     """Run the same prompt against two models in parallel. Non-streaming,
     returns both answers together for side-by-side review. No history,
     no tools, no RAG — this is a pure A/B on model output."""
@@ -499,7 +512,9 @@ async def chat_compare(req: Request):
 
 
 @app.post("/api/sandbox/run")
-async def sandbox_run(req: Request):
+@limiter.limit(LIMIT_SANDBOX)
+async def sandbox_run(request: Request):
+    req = request
     """Run a Python snippet in the macOS sandbox-exec profile. Returns stdout,
     stderr, exit code. Used by the frontend Run button on code blocks."""
     body = await req.json()
@@ -638,7 +653,8 @@ async def save_settings(req: Request):
 
 
 @app.post("/api/chat/stream")
-async def stream_chat(req: ChatRequest):
+@limiter.limit(LIMIT_CHAT_STREAM)
+async def stream_chat(request: Request, req: ChatRequest):
     """
     Dedicated Multi-Step Agent Execution Endpoint.
     Delegates to AgentOrchestrator for autonomous tool loops, citations, and artifacts.
