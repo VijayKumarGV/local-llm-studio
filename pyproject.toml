@@ -33,7 +33,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-ra --strict-markers --cov=backend --cov-report=term-missing --cov-report=html"
+addopts = "-ra --strict-markers --cov=backend --cov-report=term-missing --cov-report=html --ignore=tests/e2e"
 asyncio_mode = "auto"
 markers = [
     "integration: talks to a real Ollama or filesystem",
@@ -47,6 +47,8 @@ omit = [
     "backend/__pycache__/*",
     "backend/migrations.py",
     "backend/legacy/*",
+    # TypedDict declarations — no runtime code to exercise.
+    "backend/types.py",
 ]
 
 [tool.coverage.report]
