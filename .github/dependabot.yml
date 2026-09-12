@@ -1,0 +1,49 @@
+version: 2
+
+updates:
+  # Python runtime deps
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '04:00'
+      timezone: 'Asia/Kolkata'
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      # Auto-group patch bumps of test/dev tools so we don't drown in PRs.
+      dev-tools:
+        applies-to: version-updates
+        patterns:
+          - ruff
+          - mypy
+          - pytest*
+          - pip-audit
+          - reportlab
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '04:00'
+      timezone: 'Asia/Kolkata'
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - github-actions
+
+  # Docker
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: monthly
+      time: '04:00'
+      timezone: 'Asia/Kolkata'
+    open-pull-requests-limit: 2
+    labels:
+      - dependencies
+      - docker
