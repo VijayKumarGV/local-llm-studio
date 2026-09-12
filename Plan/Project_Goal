@@ -1,0 +1,4 @@
+1. A ChatGPT-quality UI they own, running on their own hardware — pretty rendering, agents, artifacts, projects, streaming, everything                                                                                                            
+  2. No corporate content restrictions — the single most-repeated theme; the reason they built it locally instead of just using ChatGPT
+  3. Full privacy, no telemetry, no subscriptions — legitimate secondary benefit that comes free with (1) + (2)                                                                                                                                     
+  4. A lab bench for fine-tuning and swapping open models on consumer GPU

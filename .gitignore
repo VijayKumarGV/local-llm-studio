@@ -1,0 +1,59 @@
+# ── virtualenv ─────────────────────────────
+.venv/
+venv/
+env/
+
+# ── python bytecode & caches ───────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# ── app data (all user-generated / runtime state) ─
+backend/workspace.db
+backend/workspace.db-*
+backend/uploads/
+backend/artifacts/
+corpus/
+.cc-callbacks.log
+
+# ── ML models / heavy binaries ─────────────
+*.gguf
+*.safetensors
+models/
+
+# ── UI screenshots produced during dev/verify ─
+.playwright-mcp/
+verify_*.png
+ui_*.png
+studio-loaded.png
+Screenshot*.png
+
+# ── OS / editor cruft ──────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json.example
+*.swp
+*.swo
+*~
+
+# ── node / static build artifacts ──────────
+node_modules/
+dist/
+build/
+
+# ── secrets ────────────────────────────────
+.env
+.env.local
+*.pem
+*.key

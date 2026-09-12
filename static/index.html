@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Local LLM Studio — M4 Pro Workspace</title>
+  <link rel="stylesheet" href="/static/css/app.css?v=__ASSET_HASH__" />
+  <link rel="stylesheet" href="https://esm.sh/highlight.js@11.10.0/styles/github-dark.css" />
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- ==========================================
+         LEFT SIDEBAR (Navigation & Projects)
+         ========================================== -->
+    <aside class="sidebar" id="sidebar">
+      
+      <!-- Brand & Collapse -->
+      <div class="sidebar-header">
+        <div class="brand-title">
+          <span>⚡</span>
+          <span>Studio Workspace</span>
+        </div>
+        <button class="btn-icon" id="btnToggleSidebar" title="Toggle Sidebar (Ctrl+B)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="9" y1="3" x2="9" y2="21"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="sidebar-actions">
+        <button class="btn-new-chat" id="btnNewChat">
+          <span>＋</span>
+          <span>New Conversation</span>
+        </button>
+
+        <div class="search-trigger" id="searchTrigger">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span>🔍</span>
+            <span>Search messages...</span>
+          </div>
+          <span class="shortcut-badge">Ctrl K</span>
+        </div>
+      </div>
+
+      <!-- Scrollable Navigation Lists -->
+      <div class="sidebar-scroll" id="sidebarScroll">
+        
+        <!-- Pinned Section -->
+        <div>
+          <div class="section-label">
+            <span>📌 Pinned</span>
+          </div>
+          <ul class="sidebar-list" id="pinnedList"></ul>
+        </div>
+
+        <!-- Workspaces / Projects Section -->
+        <div>
+          <div class="section-label">
+            <span>📁 Workspaces</span>
+            <button class="btn-icon" data-action="new-project" title="Create New Project" style="padding:2px 4px; font-size:0.75rem;">＋</button>
+          </div>
+          <ul class="sidebar-list" id="projectsList"></ul>
+        </div>
+
+        <!-- Recent History Section -->
+        <div>
+          <div class="section-label">
+            <span>💬 Recent Conversations</span>
+          </div>
+          <ul class="sidebar-list" id="recentList"></ul>
+        </div>
+
+        <!-- Archived Section -->
+        <div style="margin-top: 10px;">
+          <div class="archived-toggle" id="archivedToggle">
+            <span>📦 Archived Chats (<span id="archivedCount">0</span>)</span>
+            <span id="archivedArrow">▶</span>
+          </div>
+          <ul class="sidebar-list" id="archivedList" style="display:none; margin-top: 4px;"></ul>
+        </div>
+
+      </div>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <div class="gpu-indicator" title="Apple Metal (MLX) Acceleration Active">
+          <div class="gpu-dot"></div>
+          <span id="activeGpuModel">M4 Pro (37GB unified)</span>
+        </div>
+        <button class="btn-icon" data-action="open-settings" title="Settings (Ctrl+,)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+
+    </aside>
+
+
+    <!-- ==========================================
+         MAIN CHAT WORKSPACE
+         ========================================== -->
+    <main class="main-content">
+      
+      <!-- Top Navigation Bar -->
+      <header class="top-nav">
+        <div class="nav-left">
+          <button class="btn-icon" data-action="toggle-sidebar" title="Toggle Sidebar (Ctrl+B)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <span style="font-weight:700; font-size:0.95rem;" id="chatTitle">New Conversation</span>
+          <span class="project-tag" id="projectTag" style="display:none;">📁 Project</span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px;">
+          <select class="model-selector-dropdown" id="modelSelector">
+            <option value="qwen2.5:32b">qwen2.5:32b (loading...)</option>
+          </select>
+          <button class="btn-icon" data-action="export-conversation" title="Export Conversation">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Chat Messages Viewport -->
+      <div class="messages-viewport" id="messagesViewport"></div>
+
+      <!-- Advanced Message Composer -->
+      <footer class="composer-wrapper">
+        <div class="composer-container">
+          
+          <!-- Attachment Strip -->
+          <div class="attachment-strip" id="attachmentStrip"></div>
+
+          <!-- Textarea Input -->
+          <textarea
+            id="composerTextarea"
+            class="composer-textarea"
+            placeholder="Message the AI... paste screenshots, ask to search the web, or generate code artifacts. (Shift+Enter for newline)"
+            rows="1"
+          ></textarea>
+
+          <!-- Composer Controls Bar -->
+          <div class="composer-controls">
+            <div class="composer-left-tools">
+              <button class="btn-icon" id="btnAttachFile" title="Attach file or image">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                </svg>
+              </button>
+              
+              <button class="tool-toggle-btn" id="btnToggleWebSearch" title="Toggle Live Web Search">
+                <span>🌐</span>
+                <span>Web Search</span>
+              </button>
+
+              <button class="tool-toggle-btn" id="btnToggleCodeExec" title="Toggle Code Execution Sandbox">
+                <span>💻</span>
+                <span>Code Exec</span>
+              </button>
+
+              <button class="tool-toggle-btn" id="btnToggleThinkDeeply" title="Draft → critique → revise. Slower but noticeably better on hard questions.">
+                <span>🧠</span>
+                <span>Think Deeply</span>
+              </button>
+
+              <button class="tool-toggle-btn" id="btnPromptTemplates" title="Insert a prebuilt prompt template">
+                <span>📝</span>
+                <span>Templates</span>
+              </button>
+            </div>
+
+            <div class="composer-right-actions">
+              <button class="btn-stop-stream" id="btnStopStream" style="display:none;" title="Stop AI Generation">
+                <span>⏹</span>
+                <span>Stop</span>
+              </button>
+              <button class="btn-send-message" id="btnSendMessage" title="Send message (Enter)">
+                <span>Send</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="composer-hints">
+          <span class="composer-hint"><kbd>↵</kbd> Send</span>
+          <span class="composer-hint"><kbd>⇧</kbd>+<kbd>↵</kbd> Newline</span>
+          <span class="composer-hint"><kbd>⌃</kbd>+<kbd>K</kbd> Search / <kbd>&gt;</kbd> Commands</span>
+          <span class="composer-hint"><kbd>/</kbd> Slash commands</span>
+        </div>
+      </footer>
+
+      <!-- Drag & Drop Overlay -->
+      <div class="drag-overlay" id="dragOverlay">
+        <div style="text-align:center;">
+          <div style="font-size: 2.5rem; margin-bottom: 8px;">📥</div>
+          <div style="font-size: 1.2rem; font-weight: 700; color: var(--accent-cyan);">Drop files to attach</div>
+          <div style="color: var(--text-secondary); font-size: 0.85rem;">Documents, images, or code files</div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Artifact Slide-Out Drawer -->
+    <aside class="artifact-drawer" id="artifactDrawer"></aside>
+
+  </div>
+
+  <!-- Hidden File Input -->
+  <input type="file" id="fileInput" style="display:none;" multiple />
+
+  <!-- Global Context Menu -->
+  <div class="context-menu" id="contextMenu" style="display:none;"></div>
+
+
+  <!-- ==========================================
+       MODALS
+       ========================================== -->
+
+  <!-- 1. Global Search Modal (Ctrl+K) -->
+  <div class="modal-backdrop" id="searchModal">
+    <div class="modal-window">
+      <div class="search-modal-box">
+        <span style="font-size:1.2rem;">🔍</span>
+        <input type="text" class="search-modal-input" id="searchModalInput" placeholder="Search conversations, messages, projects..." />
+        <span class="shortcut-badge">ESC to close</span>
+      </div>
+      <div class="search-results-list" id="searchResultsList"></div>
+    </div>
+  </div>
+
+  <!-- 2. Settings Modal (Ctrl+,) -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3>⚙️ Studio Settings</h3>
+        <button class="btn-icon" data-action="close-modals">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-field">
+          <label>Default Model</label>
+          <select class="form-select" id="settingDefaultModel">
+            <option value="qwen2.5:32b">qwen2.5:32b (loading...)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Default Temperature (0.0 to 1.5)</label>
+          <input type="number" step="0.05" min="0" max="1.5" class="form-input" id="settingTemp" value="0.7" />
+        </div>
+        <div class="form-field">
+          <label>Global System Prompt</label>
+          <textarea class="form-textarea" rows="4" id="settingSystemPrompt"></textarea>
+        </div>
+        <div class="form-field">
+          <label>Data Portability & Backup</label>
+          <div style="display:flex; gap:8px;">
+            <button class="tool-toggle-btn" data-action="export-workspace">💾 Export Workspace Backup</button>
+            <button class="tool-toggle-btn" data-action="import-workspace">📥 Restore From Backup</button>
+          </div>
+        </div>
+        <div class="form-field" style="font-size:0.82rem; color:var(--text-muted); line-height:1.6;">
+          <strong>Shortcuts:</strong><br>
+          • <code>Ctrl + K</code>: Global Search<br>
+          • <code>Ctrl + B</code>: Toggle Sidebar<br>
+          • <code>Ctrl + N</code>: New Conversation<br>
+          • <code>Shift + Enter</code>: Multi-line in composer
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="tool-toggle-btn" data-action="close-modals">Cancel</button>
+        <button class="btn-send-message" data-action="save-settings">Save Preferences</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. New Project Modal -->
+  <div class="modal-backdrop" id="projectModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 id="projectModalTitle">Create New Project</h3>
+        <button class="btn-icon" data-action="close-modals">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editingProjectId" value="" />
+        <div class="form-field">
+          <label>Project Name</label>
+          <input type="text" class="form-input" id="projectNameInput" placeholder="e.g. Python Agent Experiments" />
+        </div>
+        <div class="form-field">
+          <label>Description</label>
+          <input type="text" class="form-input" id="projectDescInput" placeholder="Brief project summary..." />
+        </div>
+        <div class="form-field">
+          <label>Project Custom Instructions</label>
+          <textarea class="form-textarea" rows="3" id="projectInstructionsInput" placeholder="e.g. In this project, always format code in clean async Python with type hints..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="tool-toggle-btn" data-action="close-modals">Cancel</button>
+        <button class="btn-send-message" id="btnSaveProject">Save Project</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Move to Project Modal -->
+  <div class="modal-backdrop" id="moveProjectModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3>📁 Move Conversation to Workspace</h3>
+        <button class="btn-icon" data-action="close-modals">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="moveTargetConvId" value="" />
+        <div class="form-field">
+          <label>Select Destination Workspace</label>
+          <select class="form-select" id="moveProjectSelect"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="tool-toggle-btn" data-action="close-modals">Cancel</button>
+        <button class="btn-send-message" id="btnConfirmMoveProject">Move Conversation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden Project File Input -->
+  <input type="file" id="projectFileInput" style="display:none;" multiple />
+
+  <!-- Application Script (ES Module) -->
+  <script type="module" src="/static/js/app.js?v=__ASSET_HASH__"></script>
+</body>
+</html>

@@ -1,0 +1,722 @@
+I want you to significantly upgrade the AI chat application and UI that we have already built together.
+
+The goal is to turn the current application into a **complete, production-quality AI chat workspace**, with the level of functionality, usability, polish, and interaction patterns expected from a modern leading AI assistant interface.
+
+Do not treat this as simply a visual redesign. I want you to inspect the existing application, understand its current architecture and functionality, preserve everything that already works, and then systematically improve and extend it.
+
+## 1. Overall objective
+
+Build the application into a complete AI assistant platform with:
+
+* A professional AI-chat interface
+* Persistent conversations
+* Projects/workspaces
+* Conversation organization
+* Search
+* Conversation management and editing
+* Rich AI responses
+* File handling
+* Image handling
+* Code support
+* Tool/agent interaction
+* Model selection
+* Settings
+* User controls
+* Responsive design
+* Excellent loading, streaming, error, and empty states
+* Keyboard shortcuts
+* Accessibility
+* Smooth animations and interactions
+* A polished experience comparable to the best AI chat applications available today
+
+The experience should feel like a **real AI operating workspace**, not a basic chatbot demo.
+
+---
+
+# 2. Main application layout
+
+Use a three-part conceptual structure where appropriate:
+
+### Left sidebar
+
+The left sidebar should function as a complete navigation and workspace management area.
+
+It should include:
+
+* New Chat
+* Search conversations
+* Recent conversations
+* Conversation history
+* Projects / Workspaces
+* Pinned conversations
+* Archived conversations
+* User-created folders or organizational structures where useful
+* Settings
+* Help / documentation
+* Account/profile controls
+
+The sidebar should be collapsible.
+
+When collapsed, it should provide a compact icon-based navigation experience.
+
+When expanded, it should provide the full navigation experience.
+
+Support:
+
+* Drag-and-drop organization where appropriate
+* Rename conversations
+* Delete conversations
+* Archive conversations
+* Pin/unpin conversations
+* Move conversations between projects
+* Create new projects
+* Rename projects
+* Delete projects
+* Project-specific conversation organization
+* Contextual menus
+* Confirmation dialogs for destructive actions
+
+The sidebar should feel fast and unobtrusive rather than taking attention away from the chat.
+
+---
+
+# 3. Projects / Workspaces
+
+Projects should be treated as first-class entities rather than simply folders.
+
+A project should be able to contain:
+
+* Multiple conversations
+* Uploaded files
+* Project instructions/context
+* Project-level settings
+* Project-specific AI context
+* Relevant resources
+* Conversation history
+
+Users should be able to:
+
+* Create a project
+* Rename it
+* Delete it
+* Open it
+* Add conversations
+* Move conversations into it
+* Remove conversations
+* Add project instructions
+* Upload project resources/files
+* Continue working across multiple conversations within the same project
+
+The UI should make the distinction between a normal conversation and a project/workspace clear.
+
+---
+
+# 4. Main chat area
+
+The chat area should be the primary workspace.
+
+It should support:
+
+### User messages
+
+* Clean message presentation
+* Editing sent messages
+* Regenerating responses after editing
+* Copying messages
+* Sharing messages where applicable
+* Deleting messages
+* Retry/regenerate
+* Conversation branching where useful
+* Message actions available through a contextual toolbar
+
+### AI responses
+
+AI responses should support rich content such as:
+
+* Markdown
+* Headings
+* Lists
+* Tables
+* Blockquotes
+* Links
+* Inline code
+* Code blocks
+* Syntax highlighting
+* Copy-code buttons
+* Expandable content
+* Structured responses
+* Mathematical notation
+* Images
+* File references
+* Tool results
+* Citations/sources when available
+
+Responses should render progressively when the AI is streaming.
+
+Do not make the user wait for the entire response before displaying it.
+
+---
+
+# 5. Chat composer
+
+Create a sophisticated message composer rather than a simple text box.
+
+It should support:
+
+* Multi-line input
+* Enter to send
+* Shift+Enter for a new line
+* Auto-growing input
+* Attach files
+* Attach images
+* Drag-and-drop files
+* Paste images/files
+* Clear attachments
+* Attachment previews
+* Multiple attachments
+* Mention/reference functionality where appropriate
+* Model selection
+* Tool selection
+* Agent mode where applicable
+* Voice input if supported by the underlying system
+* Stop generation button
+* Retry generation
+* Loading states
+* Error states
+
+The composer should remain visually simple despite supporting many capabilities.
+
+---
+
+# 6. AI model controls
+
+Add a model selector that is designed to support multiple AI models.
+
+The architecture should make it easy to add models later.
+
+The UI should be capable of supporting concepts such as:
+
+* Fast model
+* Reasoning model
+* Advanced model
+* Image-capable model
+* Custom models
+* Local models/API providers if supported by the application's architecture
+
+Model capabilities should be reflected intelligently in the interface.
+
+Do not hard-code the architecture around one model.
+
+---
+
+# 7. AI agent capabilities
+
+This is especially important.
+
+Design the application so that the AI can operate as an **agent**, not merely respond with text.
+
+Where the backend/API supports it, the architecture should be prepared for:
+
+* Tool calling
+* Web search
+* File search
+* Code execution
+* External APIs
+* Browsing
+* Data analysis
+* File generation
+* Image generation
+* Multi-step tasks
+* Background/long-running tasks
+* Agent planning
+* Tool execution status
+* Intermediate progress
+* Human approval before sensitive actions
+* Task cancellation
+* Retry/recovery
+* Tool errors
+
+When an agent is performing work, the UI should clearly communicate:
+
+1. What the AI is doing
+2. Which tool it is using
+3. Whether it is waiting for something
+4. Whether user approval is required
+5. Whether the operation succeeded or failed
+
+Create appropriate UI components for agent/tool activity instead of dumping raw tool output into the conversation.
+
+---
+
+# 8. File and attachment system
+
+Create a robust file experience.
+
+Users should be able to:
+
+* Upload files
+* Upload multiple files
+* Preview supported files
+* Remove attachments
+* Reference files in conversations
+* See which files belong to a project
+* Search/retrieve project files where supported
+* Download generated files
+* Generate files through the AI where supported
+
+The interface should gracefully handle:
+
+* Large files
+* Unsupported formats
+* Upload failures
+* Processing states
+* File-processing progress
+* Missing files
+* Deleted files
+
+---
+
+# 9. Search
+
+Implement a powerful global search experience.
+
+Users should be able to search across:
+
+* Conversations
+* Projects
+* Messages
+* Files
+* Potentially generated artifacts
+
+Search should provide:
+
+* Fast results
+* Relevant matching
+* Search history if useful
+* Clear result categorization
+* Keyboard-accessible navigation
+* Ability to open the exact conversation/message where the result occurred
+
+---
+
+# 10. Conversation management
+
+Each conversation should have robust controls.
+
+Include:
+
+* Rename
+* Delete
+* Archive
+* Pin
+* Move to project
+* Duplicate/branch where appropriate
+* Share/export where supported
+* Search within conversation
+* Clear conversation where appropriate
+
+Do not clutter the interface.
+
+Use contextual menus and progressive disclosure.
+
+---
+
+# 11. Settings
+
+Create a comprehensive settings area.
+
+Potential categories include:
+
+### General
+
+* Theme
+* Appearance
+* Language
+* Interface preferences
+
+### Chat
+
+* Default model
+* Enter-to-send behavior
+* Response preferences
+* Conversation settings
+
+### AI / Models
+
+* Available models
+* Providers
+* API configuration where applicable
+
+### Tools
+
+* Enabled tools
+* Agent permissions
+* Tool preferences
+
+### Files
+
+* File preferences
+* Storage-related settings
+
+### Privacy
+
+* Conversation/data controls
+* History settings
+
+### Keyboard shortcuts
+
+* Shortcut reference
+* Customizable shortcuts where practical
+
+The settings architecture should be modular so new settings can be added later.
+
+---
+
+# 12. UI/UX quality
+
+Do not merely replicate individual components.
+
+Focus on the underlying interaction principles of excellent AI applications:
+
+* Minimal visual clutter
+* Strong hierarchy
+* Excellent spacing
+* Clear typography
+* Consistent iconography
+* Subtle animations
+* Fast perceived performance
+* Predictable interactions
+* Responsive controls
+* Useful hover states
+* Good empty states
+* Good error states
+* Good loading states
+* Good mobile/responsive behavior
+* Accessibility
+* Keyboard navigation
+
+The UI should feel premium and intentional.
+
+Avoid unnecessary visual effects, excessive gradients, excessive borders, or decorative elements that reduce usability.
+
+---
+
+# 13. Responsive behavior
+
+The application must work properly across:
+
+* Desktop
+* Laptop
+* Tablet
+* Mobile
+
+On smaller screens:
+
+* Sidebar should become a drawer
+* Chat should remain the primary focus
+* Composer should remain easy to use
+* Controls should not become overcrowded
+* Attachments and menus should remain accessible
+* Touch interactions should work properly
+
+Do not simply shrink the desktop interface.
+
+Design responsive behavior intentionally.
+
+---
+
+# 14. Performance
+
+Prioritize performance.
+
+The application should:
+
+* Avoid unnecessary re-renders
+* Handle long conversations efficiently
+* Stream AI responses smoothly
+* Lazy-load expensive components
+* Avoid blocking the UI
+* Preserve scroll position correctly
+* Handle large conversation histories
+* Handle many projects/conversations
+* Provide optimistic UI updates where appropriate
+
+The application should feel fast even when the AI itself is processing something.
+
+---
+
+# 15. State management and architecture
+
+Before making changes, inspect the existing codebase and understand:
+
+* Current frontend architecture
+* Backend architecture
+* API integration
+* Authentication
+* Data persistence
+* State management
+* Existing components
+* Existing styling system
+* Existing database/storage
+* Existing AI integration
+
+Do not unnecessarily rewrite working infrastructure.
+
+Extend the existing architecture intelligently.
+
+Where the current architecture will prevent the requested functionality, refactor it carefully.
+
+Keep components modular and reusable.
+
+Avoid creating one enormous component containing the entire application.
+
+---
+
+# 16. Persistence
+
+Important user state should persist appropriately.
+
+For example:
+
+* Conversations
+* Projects
+* Project settings
+* User preferences
+* Sidebar state
+* Theme
+* Model preference
+* Files
+* Message history
+
+Refreshing the page should not destroy important application state.
+
+Use the application's existing persistence/database architecture where possible.
+
+---
+
+# 17. Error handling
+
+Treat error handling as a first-class feature.
+
+Handle:
+
+* API failures
+* Network failures
+* Authentication failures
+* Rate limits
+* Tool failures
+* File-upload failures
+* AI-generation failures
+* Timeouts
+* Invalid requests
+* Missing resources
+
+Errors should be understandable to users and provide an actionable recovery path.
+
+Never leave the user staring at a broken or ambiguous state.
+
+---
+
+# 18. Keyboard shortcuts
+
+Add useful shortcuts such as:
+
+* New conversation
+* Search
+* Toggle sidebar
+* Send message
+* Cancel generation
+* Focus composer
+* Navigate conversations
+
+Display shortcuts where appropriate.
+
+---
+
+# 19. Accessibility
+
+Make the application accessible.
+
+Include:
+
+* Keyboard navigation
+* Focus management
+* Accessible labels
+* Appropriate ARIA semantics
+* Good contrast
+* Screen-reader-friendly controls
+* Visible focus states
+* Accessible dialogs
+* Accessible dropdowns
+* Accessible tooltips
+
+Do not sacrifice accessibility for visual similarity.
+
+---
+
+# 20. Important implementation instruction
+
+Do not blindly implement everything in one massive change.
+
+Work systematically.
+
+### First:
+
+Inspect the entire existing application.
+
+Identify:
+
+* What already exists
+* What works
+* What is incomplete
+* What is poorly implemented
+* What architecture needs improvement
+* What functionality is missing
+
+### Then:
+
+Create an implementation plan organized by priority.
+
+Prioritize:
+
+1. Core chat experience
+2. Conversation persistence
+3. Sidebar/navigation
+4. Projects
+5. Composer and attachments
+6. AI/model integration
+7. Agent/tool capabilities
+8. Search
+9. Settings
+10. Responsive/mobile experience
+11. Performance
+12. Accessibility
+13. Advanced/polish features
+
+Then implement the improvements incrementally.
+
+After each major change, verify that existing functionality still works.
+
+---
+
+# 21. Do not fake functionality
+
+This is critical.
+
+Do not create buttons that only look functional.
+
+Do not add fake AI capabilities simply to make the interface appear complete.
+
+If a capability requires backend/API support that does not currently exist:
+
+* Identify the dependency
+* Build the appropriate frontend architecture
+* Connect it to the existing backend if possible
+* Clearly identify what backend/API work is still required
+
+The final application should have **real functionality wherever the underlying system supports it**.
+
+---
+
+# 22. Visual target
+
+Use the current leading AI chat interfaces as a **UX quality benchmark**, including the interface I am currently using.
+
+I want the overall experience to have the same level of polish and sophistication:
+
+* Sidebar-based conversation management
+* Projects/workspaces
+* Clean chat area
+* Powerful composer
+* Rich AI responses
+* Streaming
+* Attachments
+* Model selection
+* Tools
+* Agent interactions
+* Settings
+* Search
+* Conversation controls
+* Responsive behavior
+* Excellent micro-interactions
+
+However, do **not** blindly copy proprietary branding, logos, assets, or implementation details.
+
+Instead, reproduce the underlying **quality, usability, interaction patterns, and capabilities** with our own application's design system and identity.
+
+---
+
+# 23. Proactively improve the product
+
+Use your expertise as an AI/software engineering agent.
+
+If you identify an important capability that I have not explicitly mentioned but that a modern AI chat application should have, recommend and implement it when appropriate.
+
+Think beyond my exact instructions.
+
+Ask yourself:
+
+> "If this were going to become a serious production AI assistant used every day, what would still be missing?"
+
+Then address those gaps.
+
+Consider:
+
+* Conversation branching
+* Message versioning
+* Streaming
+* Tool execution UI
+* Agent status
+* Citations
+* Artifacts
+* File previews
+* Search
+* Permissions
+* Notifications
+* Undo/recovery
+* Autosave
+* Draft preservation
+* Offline/error recovery
+* Accessibility
+* Performance
+* Security
+* Privacy
+* Responsive behavior
+* Extensibility
+
+---
+
+# 24. Final quality standard
+
+Before considering the work complete, test the entire experience from the perspective of a real user.
+
+Verify:
+
+* Can I create a conversation?
+* Can I continue it later?
+* Can I rename it?
+* Can I organize it into a project?
+* Can I search for it?
+* Can I upload files?
+* Can I send complex prompts?
+* Does streaming work correctly?
+* Can I stop generation?
+* Can I regenerate?
+* Can I edit previous messages?
+* Do rich responses render correctly?
+* Do code blocks work?
+* Do tools/agents communicate their progress clearly?
+* Do errors recover gracefully?
+* Does the UI work on mobile?
+* Does refreshing preserve state?
+* Are keyboard shortcuts useful?
+* Is the interface accessible?
+* Does everything feel fast and polished?
+
+Fix any obvious bugs, inconsistencies, dead controls, broken states, or unfinished interactions you discover.
+
+## Most important instruction
+
+**Do not just make the existing UI look more like an AI chat application. Transform the existing application into a complete, extensible AI assistant workspace with real functionality, excellent UX, and an architecture capable of supporting increasingly powerful AI agents and tools.**
+
+Use your engineering judgment throughout the process and make sensible decisions even when I have not specified every implementation detail.
