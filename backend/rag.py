@@ -28,7 +28,7 @@ from typing import Any
 import httpx
 import numpy as np
 
-from backend import database
+from backend import database, prompts
 from backend.ollama_client import get_ollama_client
 
 DEFAULT_EMBED_MODEL = "nomic-embed-text"
@@ -275,14 +275,9 @@ def _setting_bool(key: str, default: bool = True) -> bool:
 # HyDE — Hypothetical Document Embedding
 # ==========================================
 
-_HYDE_SYSTEM = (
-    "You are a search-query rewriter. Given a user question, write a plausible "
-    "short passage (2-3 sentences) that would appear in a technical document "
-    "answering it. Include likely keywords, identifiers (like CVE-… or T####), "
-    "and technical terminology. Do NOT hedge, don't preface, don't say 'I don't "
-    "know'. Just write the passage. Output only the passage — no fences, no "
-    "headings, no commentary."
-)
+
+def _hyde_system() -> str:
+    return prompts.load("hyde")
 
 
 async def _hyde_expand(query: str) -> str:
@@ -297,7 +292,7 @@ async def _hyde_expand(query: str) -> str:
                 "model": model,
                 "stream": False,
                 "messages": [
-                    {"role": "system", "content": _HYDE_SYSTEM},
+                    {"role": "system", "content": _hyde_system()},
                     {"role": "user", "content": query},
                 ],
                 "options": {"temperature": 0.2, "num_predict": 180},
@@ -318,12 +313,9 @@ async def _hyde_expand(query: str) -> str:
 # LLM Reranker
 # ==========================================
 
-_RERANK_SYSTEM = (
-    "You are a relevance judge. Given a user query and numbered snippets, "
-    "score each snippet from 0 to 10 for how well it answers the query "
-    "(10 = directly answers, 0 = irrelevant). Return ONLY a JSON object of "
-    'exactly this shape: {"scores": [{"id": 1, "score": 8}, ...]}. No preamble.'
-)
+
+def _rerank_system() -> str:
+    return prompts.load("rerank")
 
 
 async def _llm_rerank(query: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -348,7 +340,7 @@ async def _llm_rerank(query: str, candidates: list[dict[str, Any]]) -> list[dict
                 "model": model,
                 "stream": False,
                 "messages": [
-                    {"role": "system", "content": _RERANK_SYSTEM},
+                    {"role": "system", "content": _rerank_system()},
                     {"role": "user", "content": prompt},
                 ],
                 "options": {"temperature": 0.0, "num_predict": 400},

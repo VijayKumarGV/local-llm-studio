@@ -40,9 +40,10 @@ Screenshot*.png
 .vscode/
 .idea/
 
-# Docs / plan / package metadata not needed inside the image
+# Docs / plan / package metadata not needed inside the image.
+# NOTE: `prompts/` (lowercase) contains runtime prompt templates loaded by
+# `backend.prompts.load` — MUST stay in the image.
 Plan/
-Prompts/
 docs/
 *.md
 !README.md

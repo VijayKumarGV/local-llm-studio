@@ -49,6 +49,7 @@ def build() -> None:
         f"--add-data={ROOT / 'static'}:static",
         f"--add-data={ROOT / 'migrations'}:migrations",
         f"--add-data={ROOT / 'scripts'}:scripts",
+        f"--add-data={ROOT / 'prompts'}:prompts",
         # uvicorn's dynamic imports PyInstaller misses without hints
         "--hidden-import=uvicorn.lifespan.on",
         "--hidden-import=uvicorn.lifespan.off",

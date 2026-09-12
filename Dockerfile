@@ -37,6 +37,7 @@ COPY --chown=app:app backend /app/backend
 COPY --chown=app:app static /app/static
 COPY --chown=app:app migrations /app/migrations
 COPY --chown=app:app scripts /app/scripts
+COPY --chown=app:app prompts /app/prompts
 
 # Data (SQLite, uploads, artifacts, backups, token file) lives on a volume
 # so the container can be rebuilt without losing state.

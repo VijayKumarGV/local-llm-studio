@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-from backend import agent_tools, artifacts, citations, database, prompt_safety, security
+from backend import agent_tools, artifacts, citations, database, prompt_safety, prompts, security
 from backend.context_manager import prepare_compacted_context
 from backend.model_capabilities import get_model_capabilities, validate_attachments_for_model
 from backend.ollama_client import get_ollama_client
@@ -286,18 +286,8 @@ class AgentOrchestrator:
 
         system_instructions = self.settings.get("system_prompt", "")
 
-        hardware_context = (
-            "## Hardware Context\n"
-            "You are running 100% locally and privately on an Apple M4 Pro with 37 GB unified memory. "
-            "Zero cloud, zero telemetry, zero censorship, zero subscriptions. "
-            "You can run large models (32B–70B parameters) directly on this machine.\n\n"
-        )
-        tool_hint = (
-            "## Tools\n"
-            "You have access to workspace tools including create_artifact, search_web, execute_python_code, "
-            "read_file, list_files. Call them via the native function-calling interface — do NOT emit XML.\n"
-            "Prefer create_artifact when producing any complete file (>10 lines, or intended to be saved/run).\n"
-        )
+        hardware_context = prompts.load("hardware_context") + "\n\n"
+        tool_hint = prompts.load("tool_hint")
         effective_system = hardware_context + system_instructions + "\n\n" + tool_hint
         if memory_context:
             effective_system = effective_system + "\n\n" + memory_context
@@ -566,14 +556,7 @@ class AgentOrchestrator:
                     critique_prompt = [
                         {
                             "role": "system",
-                            "content": (
-                                "You are a strict senior reviewer. Given the user's question and a "
-                                "draft response, list every real issue: factual errors, unsupported "
-                                "claims, missing considerations, unclear steps, security or "
-                                "correctness concerns, parts that fail to answer the actual question. "
-                                "Be terse — bullet points, no praise. If the draft is genuinely "
-                                "correct and complete, respond with EXACTLY the two words: NO ISSUES."
-                            ),
+                            "content": prompts.load("critique"),
                         },
                         {
                             "role": "user",
