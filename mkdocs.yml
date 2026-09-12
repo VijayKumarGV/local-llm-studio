@@ -1,0 +1,65 @@
+site_name: Local LLM Studio
+site_description: FastAPI + SPA local-first LLM workspace fronting Ollama, tuned for Apple M4 Pro.
+site_url: https://avishwakarma.github.io/local-llm-studio/
+repo_url: https://github.com/avishwakarma/local-llm-studio
+repo_name: local-llm-studio
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 Local LLM Studio contributors — MIT-licensed docs.
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: cyan
+      toggle: {icon: material/weather-sunny, name: Switch to light mode}
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: cyan
+      toggle: {icon: material/weather-night, name: Switch to dark mode}
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Get Started:
+      - Install: install.md
+      - First Run: first-run.md
+      - Concepts: concepts.md
+  - Reference:
+      - API: api.md
+      - Architecture: architecture.md
+  - Operations:
+      - Monitoring: ops/monitoring.md
+      - Backups: ops/backups.md
+      - Updating: ops/updating.md
