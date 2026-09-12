@@ -1,0 +1,3 @@
+The quick brown fox jumps over the lazy dog.
+Second line of the fixture.
+Third line for chunking tests.
