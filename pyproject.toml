@@ -57,6 +57,30 @@ exclude_lines = [
     "if TYPE_CHECKING:",
 ]
 
+[tool.mypy]
+python_version = "3.12"
+files = ["backend"]
+exclude = [
+    "^backend/artifacts/",       # runtime-generated artifact files
+    "^backend/uploads/",         # runtime-generated uploads
+    "^backend/__pycache__/",
+]
+namespace_packages = true
+explicit_package_bases = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+check_untyped_defs = true
+disallow_untyped_defs = false     # tighten to true once every function has annotations
+disallow_incomplete_defs = false  # tighten later once low-hanging fruit fixed
+no_implicit_optional = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = ["backend.legacy.*", "tests.*", "yoyo.*"]
+ignore_errors = true
+
 [tool.ruff]
 line-length = 120
 target-version = "py312"

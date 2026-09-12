@@ -175,7 +175,7 @@ def get_project(project_id: str) -> dict[str, Any] | None:
 
 def create_project(
     name: str, description: str = "", system_instructions: str = "", icon: str = "📁", color: str = "#38bdf8"
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     now = datetime.now().isoformat()
     pid = str(uuid.uuid4())
     with get_connection() as conn:
@@ -284,7 +284,7 @@ def create_conversation(
     model: str = "qwen2.5:32b",
     system_prompt: str = "",
     temperature: float = 0.7,
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     now = datetime.now().isoformat()
     cid = str(uuid.uuid4())
     with get_connection() as conn:
@@ -338,6 +338,8 @@ def duplicate_conversation(conv_id: str) -> dict[str, Any] | None:
         system_prompt=orig.get("system_prompt", ""),
         temperature=orig.get("temperature", 0.7),
     )
+    if new_conv is None:
+        return None
 
     for msg in orig.get("messages", []):
         add_message(
@@ -367,6 +369,8 @@ def branch_conversation(conv_id: str, message_id: str) -> dict[str, Any] | None:
         system_prompt=orig.get("system_prompt", ""),
         temperature=orig.get("temperature", 0.7),
     )
+    if new_conv is None:
+        return None
 
     for msg in orig.get("messages", []):
         add_message(

@@ -325,11 +325,13 @@ class AgentOrchestrator:
         if caps_now.get("vision") and attachments:
             import base64 as _b64
 
-            image_b64s = []
+            image_b64s: list[str] = []
             for att in attachments:
-                m = (att.get("mime_type") or "").lower()
+                mime = (att.get("mime_type") or "").lower()
                 fn = (att.get("filename") or "").lower()
-                is_img = m.startswith("image/") or fn.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"))
+                is_img = mime.startswith("image/") or fn.endswith(
+                    (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
+                )
                 if not is_img or not att.get("id"):
                     continue
                 rec = database.get_file(att["id"])
@@ -342,9 +344,9 @@ class AgentOrchestrator:
                     continue
             if image_b64s and messages_payload:
                 # Attach to the last user message per Ollama's chat API convention.
-                for m in reversed(messages_payload):
-                    if m.get("role") == "user":
-                        m["images"] = image_b64s
+                for msg in reversed(messages_payload):
+                    if msg.get("role") == "user":
+                        msg["images"] = image_b64s  # type: ignore[assignment]
                         break
                 yield f"event: vision_attached\ndata: {json.dumps({'images': len(image_b64s), 'model': model_name})}\n\n"
 
@@ -447,9 +449,13 @@ class AgentOrchestrator:
 
                         if msg.get("tool_calls"):
                             for tc in msg["tool_calls"]:
-                                fn = tc.get("function", {}) or {}
+                                if not isinstance(tc, dict):
+                                    continue
+                                fn = tc.get("function") or {}
+                                if not isinstance(fn, dict):
+                                    continue
                                 name = fn.get("name")
-                                args = fn.get("arguments") or {}
+                                args: Any = fn.get("arguments") or {}
                                 if isinstance(args, str):
                                     try:
                                         args = json.loads(args)
@@ -476,15 +482,16 @@ class AgentOrchestrator:
                     break  # model produced its final answer
 
                 # Add the assistant turn to history so the model sees its own tool calls.
-                messages_payload.append(
-                    {
-                        "role": "assistant",
-                        "content": assistant_text,
-                        "tool_calls": [
-                            {"function": {"name": c["name"], "arguments": c["arguments"]}} for c in assistant_tool_calls
-                        ],
-                    }
-                )
+                # The list is typed as dict[str, str] for the plain-chat path;
+                # tool_calls is a structured field that Ollama tolerates.
+                assistant_turn: dict[str, Any] = {
+                    "role": "assistant",
+                    "content": assistant_text,
+                    "tool_calls": [
+                        {"function": {"name": c["name"], "arguments": c["arguments"]}} for c in assistant_tool_calls
+                    ],
+                }
+                messages_payload.append(assistant_turn)
 
                 for call in assistant_tool_calls:
                     if cancellation_event and cancellation_event.is_set():

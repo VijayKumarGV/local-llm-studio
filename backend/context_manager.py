@@ -8,6 +8,7 @@ from typing import Any
 
 from backend.model_capabilities import get_model_capabilities
 
+_ENC: Any = None
 try:
     import tiktoken
 

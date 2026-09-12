@@ -19,8 +19,8 @@ def search_web(query: str, max_results: int = 5) -> dict[str, Any]:
     try:
         try:
             from ddgs import DDGS
-        except ImportError:
-            from duckduckgo_search import DDGS
+        except ImportError:  # pragma: no cover — fallback for older env
+            from duckduckgo_search import DDGS  # type: ignore[no-redef]
         results: list[dict[str, Any]] = []
         with DDGS() as ddgs:
             for r in ddgs.text(query, max_results=max_results, safesearch="moderate"):
@@ -104,8 +104,8 @@ def create_artifact(
     name: str,
     content: str,
     artifact_type: str = "code",
-    conversation_id: str = None,
-    project_id: str = None,
+    conversation_id: str | None = None,
+    project_id: str | None = None,
     language: str = "",
 ) -> dict[str, Any]:
     """

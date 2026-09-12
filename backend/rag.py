@@ -405,7 +405,7 @@ def _mmr(
     rel = {c["id"]: _sim(embeddings[c["id"]], query_vec) if c["id"] in embeddings else 0.0 for c in remaining}
 
     while remaining and len(picked) < top_k:
-        best = None
+        best: dict[str, Any] | None = None
         best_score = -float("inf")
         for c in remaining:
             r = rel.get(c["id"], 0.0)
@@ -417,6 +417,8 @@ def _mmr(
             if score > best_score:
                 best_score = score
                 best = c
+        if best is None:  # pragma: no cover — defensive; remaining non-empty guarantees a pick
+            break
         picked.append(best)
         remaining.remove(best)
     return picked
@@ -680,16 +682,16 @@ async def retrieve(
 
     pool: list[dict[str, Any]] = []
     for cid, fused_score in ranked:
-        r = row_by_id.get(cid)
-        if not r:
+        row = row_by_id.get(cid)
+        if not row:
             continue
         pool.append(
             {
                 "id": cid,
-                "file_id": r["file_id"],
-                "chunk_index": int(r["chunk_index"]),
-                "text": r["text"],
-                "filename": r["filename"],
+                "file_id": row["file_id"],
+                "chunk_index": int(row["chunk_index"]),
+                "text": row["text"],
+                "filename": row["filename"],
                 "score": round(fused_score, 6),
                 "vector_score": round(vector_scores.get(cid, 0.0), 4),
                 "bm25_rank": bm25_rank.get(cid),

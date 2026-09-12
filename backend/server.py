@@ -386,7 +386,7 @@ async def upload_file(
         extracted_preview = full_text[:4000]
 
         record = database.add_file(
-            filename=file.filename,
+            filename=file.filename or f"{fid}.bin",
             filepath=save_path,
             mime_type=mime_type,
             size_bytes=size_bytes,

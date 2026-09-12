@@ -37,7 +37,7 @@ jobs:
         run: .venv/bin/ruff format --check backend/ tests/
 
       - name: Mypy
-        run: .venv/bin/mypy backend/ || true   # non-blocking until Week 2 Day 3
+        run: .venv/bin/mypy backend/
 
       - name: Pytest
         run: .venv/bin/pytest --cov=backend --cov-report=xml --cov-report=term
