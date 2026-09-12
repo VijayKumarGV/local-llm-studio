@@ -6,6 +6,7 @@ model capability detection, and workspace backup/restore.
 
 import asyncio
 import hmac
+import json
 import logging
 import os
 import shutil
@@ -32,6 +33,7 @@ from backend import (
     long_term_memory,
     metrics,
     model_capabilities,
+    onboarding,
     rag,
     session_notes,
 )
@@ -194,6 +196,57 @@ def audit_list(limit: int = 100, action: str | None = None, resource_type: str |
     """Read-only view of the append-only audit trail. Latest first."""
     entries = audit_log.list_recent(limit=limit, action=action, resource_type=resource_type)
     return {"status": "success", "count": len(entries), "entries": entries}
+
+
+@app.get("/api/onboarding/status")
+async def onboarding_status():
+    """First-run detection surface — powers the setup wizard."""
+    return await onboarding.status()
+
+
+class ModelPullRequest(BaseModel):
+    model: str
+
+
+@app.post("/api/models/pull")
+async def pull_model(req: ModelPullRequest):
+    """Stream ollama pull progress as SSE.
+
+    Emits one `event: progress` per ollama NDJSON line, then a final
+    `event: done` (or `event: error`). Frontend uses this in the wizard
+    to render a live progress bar.
+    """
+    name = (req.model or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="model is required")
+
+    async def _generator():
+        client = get_ollama_client()
+        payload = {"name": name, "stream": True}
+        try:
+            async with client.stream("POST", "/api/pull", json=payload, timeout=None) as resp:
+                if resp.status_code >= 400:
+                    body = (await resp.aread()).decode("utf-8", errors="replace")[:500]
+                    yield f"event: error\ndata: {json.dumps({'error': f'ollama returned {resp.status_code}: {body}'})}\n\n"
+                    return
+                async for line in resp.aiter_lines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    yield f"event: progress\ndata: {json.dumps(obj)}\n\n"
+                    if obj.get("status") == "success":
+                        yield f"event: done\ndata: {json.dumps({'model': name})}\n\n"
+                        return
+                # Stream ended without a `success` — treat as error.
+                yield f"event: error\ndata: {json.dumps({'error': 'ollama stream ended without success'})}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'error': f'pull failed: {e}'})}\n\n"
+
+    return StreamingResponse(_generator(), media_type="text/event-stream")
 
 
 @app.get("/api/cost/summary")
@@ -793,7 +846,16 @@ def _asset_hash() -> str:
     import hashlib
 
     h = hashlib.sha256()
-    for rel in ("js/app.js", "js/markdown.js", "js/api.js", "js/state.js", "css/app.css"):
+    for rel in (
+        "js/app.js",
+        "js/markdown.js",
+        "js/api.js",
+        "js/state.js",
+        "js/onboarding.js",
+        "js/keybindings.js",
+        "js/recovery.js",
+        "css/app.css",
+    ):
         p = os.path.join(STATIC_DIR, rel)
         try:
             with open(p, "rb") as fh:
