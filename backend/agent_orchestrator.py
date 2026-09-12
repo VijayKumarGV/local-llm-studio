@@ -76,11 +76,14 @@ def route_model(
     # Images always force a vision model — no text model can see them.
     if _has_image_attachment(attachments):
         req_caps = get_model_capabilities(requested_model)
-        if not req_caps.get("vision"):
-            for name in ("minicpm-v:latest", "minicpm-v", "llava:latest", "llava", "moondream:latest", "moondream"):
-                if name in installed_set:
-                    return name, "image attachment — routed to vision model"
-        # else fall through to normal routing (requested model already supports vision)
+        if req_caps.get("vision"):
+            # Requested model already supports vision — keep it, don't let
+            # downstream heuristics (like trivial-question → llama3.2:1b) strip
+            # away the vision capability.
+            return requested_model, "requested model supports vision — kept"
+        for name in ("minicpm-v:latest", "minicpm-v", "llava:latest", "llava", "moondream:latest", "moondream"):
+            if name in installed_set:
+                return name, "image attachment — routed to vision model"
 
     # Per-workspace explicit override wins over heuristics
     if project_id:
