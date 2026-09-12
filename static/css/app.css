@@ -1,3 +1,55 @@
+/* ── Accessibility primitives ─────────────────────────────────────────
+   Loaded first so they can't be shadowed by later specificity. */
+
+/* Off-screen but announced by assistive tech. Used for the SSE-status
+   `aria-live` region and skip link when unfocused. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip-to-content: hidden until keyboard-focused, then teleports the
+   caret past the sidebar/topbar into the messages viewport. */
+.skip-to-content {
+  position: absolute;
+  top: -100px;
+  left: 8px;
+  padding: 8px 14px;
+  background: #a855f7;
+  color: #fff;
+  font-weight: 700;
+  border-radius: 6px;
+  z-index: 10000;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+.skip-to-content:focus-visible {
+  top: 8px;
+  outline: 3px solid #22d3ee;
+  outline-offset: 2px;
+}
+
+/* Consistent high-contrast focus ring for every interactive element.
+   `:focus-visible` (not `:focus`) so mouse clicks don't get ringed. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #22d3ee;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 :root {
   /* Lovable-inspired palette: warmer black, soft slate surfaces,
      violet primary + electric-cyan secondary, generous radii. */
@@ -1345,17 +1397,106 @@ code:not(pre code) {
   pointer-events: auto;
 }
 
-/* Responsive Mobile Rules */
-@media (max-width: 768px) {
+/* Voice recording — pulsing red when mic is active. */
+.btn-icon.recording,
+.btn-icon[aria-pressed="true"].recording {
+  background: #ef4444 !important;
+  color: #fff !important;
+}
+.btn-icon.recording::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  border: 2px solid #ef4444;
+  opacity: 0.6;
+  animation: mic-pulse 1.2s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes mic-pulse {
+  0%   { transform: scale(0.9); opacity: 0.8; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+.btn-icon.recording { position: relative; }
+
+/* ── Responsive layout ───────────────────────────────────────────────
+   Breakpoints:
+     ≥ 1200 px  desktop 3-col (default)
+     900–1199   tablet — sidebar shrinks to icon rail (72 px), artifact
+                drawer becomes a full-height modal
+     < 900 px   phone — sidebar becomes a slide-in drawer with a scrim,
+                artifact drawer goes full-screen
+   The DOM stays identical across all sizes; layout is CSS-only. */
+
+/* Sidebar scrim shown on <900 px when the drawer is open. Rendered by
+   JS toggling .sidebar.mobile-open on the parent. */
+.sidebar-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 49;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.sidebar-scrim.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (max-width: 1199px) and (min-width: 900px) {
+  /* Icon-rail sidebar: keep width but hide text-heavy elements. */
+  :root {
+    --sidebar-width: 72px;
+  }
+  .sidebar-header .brand-title,
+  .sidebar-actions .search-trigger span:not(.shortcut-badge),
+  .sidebar-actions .btn-new-chat span:not(:first-child),
+  .section-label,
+  .sidebar-list .nav-item-title,
+  .sidebar-list .item-badge,
+  .sidebar-footer .gpu-indicator span {
+    display: none;
+  }
+  .sidebar-actions .btn-new-chat {
+    justify-content: center;
+    padding: 10px 0;
+  }
+  .artifact-drawer {
+    width: min(100vw, 720px);
+  }
+}
+
+@media (max-width: 899px) {
   .sidebar {
     position: fixed;
     top: 0;
     left: 0;
+    width: 280px;
     transform: translateX(-100%);
     box-shadow: 10px 0 30px rgba(0, 0, 0, 0.7);
+    z-index: 60;
   }
   .sidebar.mobile-open {
     transform: translateX(0);
+  }
+  .artifact-drawer {
+    width: 100vw;
+    max-width: 100vw;
+    border-left: none;
+  }
+  .composer-controls {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .composer-textarea {
+    font-size: 16px;   /* iOS Safari: avoids zoom-on-focus */
+  }
+  .top-nav {
+    padding: 8px 12px;
+  }
+  .messages-viewport {
+    padding: 12px;
   }
 }
 

@@ -11,6 +11,7 @@ import { renderArtifactDrawer } from "./artifacts_ui.js";
 import { maybeShowWizard } from "./onboarding.js";
 import { installShortcutsHelp } from "./keybindings.js";
 import { pollHealthAndSurfaceIssues, withRetry, showBanner } from "./recovery.js";
+import { installVoiceFeatures } from "./voice.js";
 
 // DOM Elements
 const DOM = {
@@ -85,6 +86,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Also non-blocking: surface a recovery banner if ollama is unreachable
   // or the embed model is missing.
   pollHealthAndSurfaceIssues();
+  // Attach the mic + 🔊 buttons iff whisper/piper are installed.
+  installVoiceFeatures();
 });
 
 async function loadInitialData() {
@@ -161,7 +164,7 @@ function populateModelSelector() {
 // ==========================================
 
 function setupEventListeners() {
-  DOM.btnToggleSidebar?.addEventListener("click", () => DOM.sidebar.classList.toggle("collapsed"));
+  DOM.btnToggleSidebar?.addEventListener("click", () => toggleSidebar());
   DOM.btnNewChat?.addEventListener("click", () => createNewConversation(state.activeProjectFilter));
 
   // Delegated data-action handlers (replaces inline onclick= in index.html)
@@ -172,7 +175,7 @@ function setupEventListeners() {
     switch (action) {
       case "new-project": window.openNewProjectModal?.(); break;
       case "open-settings": window.openSettingsModal?.(); break;
-      case "toggle-sidebar": DOM.sidebar?.classList.toggle("collapsed"); break;
+      case "toggle-sidebar": toggleSidebar(); break;
       case "export-conversation":
         if (state.currentConversationId) window.exportConv?.(state.currentConversationId);
         break;
@@ -350,7 +353,7 @@ function setupEventListeners() {
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
       e.preventDefault();
-      DOM.sidebar.classList.toggle("collapsed");
+      toggleSidebar();
     }
     if ((e.ctrlKey || e.metaKey || e.altKey) && e.key.toLowerCase() === "n") {
       e.preventDefault();
@@ -1058,11 +1061,56 @@ function stopGeneration() {
   if (state.currentAbortController) state.currentAbortController.abort();
 }
 
+/** Viewport-aware sidebar toggle.
+ *  ≥900 px  → `.collapsed` (icon rail / hidden depending on breakpoint CSS)
+ *  <900 px  → `.mobile-open` slide-in drawer, with a click-away scrim. */
+function toggleSidebar() {
+  if (!DOM.sidebar) return;
+  const narrow = window.matchMedia("(max-width: 899px)").matches;
+  if (narrow) {
+    const nowOpen = !DOM.sidebar.classList.contains("mobile-open");
+    DOM.sidebar.classList.toggle("mobile-open", nowOpen);
+    toggleScrim(nowOpen);
+  } else {
+    DOM.sidebar.classList.toggle("collapsed");
+  }
+}
+
+function toggleScrim(show) {
+  let scrim = document.getElementById("sidebarScrim");
+  if (!scrim && show) {
+    scrim = document.createElement("div");
+    scrim.id = "sidebarScrim";
+    scrim.className = "sidebar-scrim";
+    scrim.addEventListener("click", () => toggleSidebar());
+    document.body.appendChild(scrim);
+    requestAnimationFrame(() => scrim.classList.add("visible"));
+    return;
+  }
+  if (scrim && !show) {
+    scrim.classList.remove("visible");
+    scrim.addEventListener("transitionend", () => scrim.remove(), { once: true });
+  }
+}
+
 function setStreamingState(streaming) {
   state.isStreaming = streaming;
   DOM.btnSendMessage.style.display = streaming ? "none" : "flex";
   DOM.btnStopStream.style.display = streaming ? "flex" : "none";
   DOM.composerTextarea.disabled = streaming;
+  announceToScreenReader(streaming ? "Generating response" : "Response ready");
+}
+
+/** Push a message into the `aria-live` region for screen readers.
+ *  Cleared shortly after so it doesn't clutter the a11y tree. */
+function announceToScreenReader(msg) {
+  const el = document.getElementById("a11yLive");
+  if (!el) return;
+  el.textContent = "";
+  // A microtask delay ensures the change is announced even for
+  // identical consecutive messages.
+  setTimeout(() => { el.textContent = msg; }, 30);
+  setTimeout(() => { if (el.textContent === msg) el.textContent = ""; }, 4000);
 }
 
 
