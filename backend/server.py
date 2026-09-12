@@ -35,6 +35,7 @@ from backend.auth import COOKIE_NAME, auth_middleware, load_or_create_token
 from backend.middleware import RequestIdFilter, request_context_middleware
 from backend.migrations import apply_migrations
 from backend.ollama_client import close_ollama_client, get_ollama_client
+from backend.security_headers import security_headers_middleware
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO"),
@@ -67,9 +68,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Local LLM Studio API — M4 Pro Edition", version="0.2.0", lifespan=lifespan)
 
-# Order matters — request-id first so auth failures still carry a trace ID.
-app.middleware("http")(request_context_middleware)
-app.middleware("http")(auth_middleware)
+# Middleware registration is INSIDE-OUT — the last one registered becomes
+# the OUTERMOST wrapper. We want:
+#   security_headers → auth → request_context → endpoint
+# So security headers wrap every response (including 401s from auth), and
+# request IDs are available to endpoint code.
+app.middleware("http")(request_context_middleware)  # innermost — sets request_id_var
+app.middleware("http")(auth_middleware)  # middle — 401s bubble up through security
+app.middleware("http")(security_headers_middleware)  # outermost — decorates every response
 
 app.add_middleware(
     CORSMiddleware,
