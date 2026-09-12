@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-from backend import agent_tools, artifacts, citations, database, security
+from backend import agent_tools, artifacts, citations, database, prompt_safety, security
 from backend.context_manager import prepare_compacted_context
 from backend.model_capabilities import get_model_capabilities, validate_attachments_for_model
 from backend.ollama_client import get_ollama_client
@@ -172,6 +172,16 @@ class AgentOrchestrator:
             yield f"event: error\ndata: {json.dumps({'error': vision_warning})}\n\n"
             return
 
+        # Prompt-injection heuristic scan. Always emits a warning event on
+        # findings; only refuses when the block_prompt_injection setting is on.
+        settings_snapshot = self.settings
+        findings = prompt_safety.scan(user_message)
+        if findings:
+            yield f"event: prompt_warning\ndata: {json.dumps({'findings': findings})}\n\n"
+            if _setting_bool(settings_snapshot, "block_prompt_injection", False):
+                yield f"event: error\ndata: {json.dumps({'error': 'prompt blocked by heuristics', 'findings': findings})}\n\n"
+                return
+
         user_msg = database.add_message(
             conversation_id=conversation_id,
             role="user",
@@ -180,7 +190,6 @@ class AgentOrchestrator:
         )
 
         # Auto-route to a better model for this specific question / attachments.
-        settings_snapshot = self.settings
         routed_model, route_reason = route_model(
             requested_model=model_name,
             user_message=user_message,
