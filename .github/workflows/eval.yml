@@ -1,0 +1,106 @@
+name: Eval harness
+
+# Manual only. Running evals installs ollama, pulls a chat + embedding
+# model, boots the studio server, and hits every spec — measured in
+# minutes, not seconds. Trigger from Actions → "Eval harness" → Run
+# workflow.
+#
+# For continuous regression tracking on a real workstation, run
+# `make evals` locally and commit the resulting `evals/history/*.json`
+# to your baseline branch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: 'Spec file (e.g. evals/security_expert.jsonl or evals/coding_expert.jsonl)'
+        required: true
+        default: 'evals/security_expert.jsonl'
+      model:
+        description: 'Ollama model to use (must fit in runner RAM — llama3.2:3b is a safe default)'
+        required: true
+        default: 'llama3.2:3b'
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
+
+      - name: Install Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve >ollama.log 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 1
+          done
+
+      - name: Pull models
+        run: |
+          ollama pull nomic-embed-text
+          ollama pull ${{ inputs.model }}
+
+      - name: Boot studio server
+        env:
+          BIND_HOST: 127.0.0.1
+          BIND_PORT: '8080'
+          SESSION_TOKEN: eval-ci-token
+          OLLAMA_HOST: http://127.0.0.1:11434
+          STUDIO_DATA_DIR: ${{ runner.temp }}/studio-data
+        run: |
+          mkdir -p "$STUDIO_DATA_DIR"
+          nohup .venv/bin/python -m uvicorn backend.server:app --host "$BIND_HOST" --port "$BIND_PORT" >server.log 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl -fsS "http://$BIND_HOST:$BIND_PORT/api/health" >/dev/null; then break; fi
+            sleep 1
+          done
+
+      # NOTE: on a fresh CI-provisioned workspace with no corpus, retrieval
+      # checks will fail — that's expected. We still validate that the runner
+      # + server + ollama round-trip works end-to-end (i.e. no crash, JSON
+      # report produced).
+      - name: Curate corpus + provision expert workspaces
+        env:
+          OLLAMA_HOST: http://127.0.0.1:11434
+        run: |
+          .venv/bin/python scripts/curate_corpus.py
+          .venv/bin/python scripts/build_expert_workspaces.py
+
+      - name: Run evals
+        env:
+          SESSION_TOKEN: eval-ci-token
+        run: |
+          .venv/bin/python evals/run.py \
+            --spec "${{ inputs.spec }}" \
+            --server http://127.0.0.1:8080 \
+            --model "${{ inputs.model }}" \
+            --compare-baseline
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-${{ github.run_id }}
+          path: |
+            evals/history/*.json
+            ollama.log
+            server.log
+          if-no-files-found: warn

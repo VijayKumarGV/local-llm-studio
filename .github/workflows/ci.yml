@@ -31,13 +31,13 @@ jobs:
           .venv/bin/pip install pytest pytest-asyncio pytest-cov pytest-httpx ruff mypy reportlab pip-audit
 
       - name: Ruff (lint)
-        run: .venv/bin/ruff check backend/ tests/
+        run: .venv/bin/ruff check backend/ tests/ desktop/ evals/
 
       - name: Ruff (format check)
-        run: .venv/bin/ruff format --check backend/ tests/
+        run: .venv/bin/ruff format --check backend/ tests/ desktop/ evals/
 
       - name: Mypy
-        run: .venv/bin/mypy backend/
+        run: .venv/bin/mypy backend/ desktop/
 
       - name: Pytest
         run: .venv/bin/pytest --cov=backend --cov-report=xml --cov-report=term

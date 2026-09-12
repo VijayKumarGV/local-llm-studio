@@ -5,7 +5,8 @@ SHELL := /usr/bin/env bash
 
 .PHONY: help run stop restart logs shell dev test lint format typecheck audit \
         cov build image compose-up compose-down compose-logs backup migrate \
-        first-run bundle sign notarize dmg release-artifacts
+        first-run bundle sign notarize dmg release-artifacts evals evals-security evals-coding \
+        feedback-digest
 
 help:  ## Show this help.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -64,6 +65,23 @@ shell:          ## Open a shell inside the running studio container.
 
 first-run:      ## Pull models, curate corpus, provision expert workspaces.
 	./scripts/first_run.sh
+
+# ── Evals ──────────────────────────────────────────────────────────────
+# Runs against a LIVE studio server — assumes `make dev` is running (or
+# equivalent) with expert workspaces provisioned. Set SESSION_TOKEN in
+# the environment.
+STUDIO_SERVER ?= http://127.0.0.1:8080
+
+evals-security: ## Run the Security Expert eval set (writes evals/history/).
+	.venv/bin/python evals/run.py --spec evals/security_expert.jsonl --server $(STUDIO_SERVER) --compare-baseline
+
+evals-coding:   ## Run the Coding Expert eval set (writes evals/history/).
+	.venv/bin/python evals/run.py --spec evals/coding_expert.jsonl --server $(STUDIO_SERVER) --compare-baseline
+
+evals: evals-security evals-coding  ## Run both expert eval sets in sequence.
+
+feedback-digest:  ## Weekly rollup of thumbs-down feedback → evals/digests/.
+	.venv/bin/python scripts/feedback_digest.py
 
 # ── macOS .app packaging ───────────────────────────────────────────────
 # Requires:  pip install -r desktop/requirements.txt
