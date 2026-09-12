@@ -12,6 +12,7 @@ import os
 import shutil
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -24,6 +25,7 @@ from slowapi.errors import RateLimitExceeded
 
 from backend import (
     artifacts,
+    audio,
     audit_log,
     backup,
     cost_ledger,
@@ -202,6 +204,38 @@ def audit_list(limit: int = 100, action: str | None = None, resource_type: str |
 async def onboarding_status():
     """First-run detection surface — powers the setup wizard."""
     return await onboarding.status()
+
+
+@app.get("/api/audio/status")
+def audio_status():
+    """Report whether whisper (STT) and piper (TTS) are wired up. Frontend
+    calls this once at load and hides the mic / speaker buttons if
+    `available: false`."""
+    return audio.status()
+
+
+@app.post("/api/audio/transcribe")
+async def audio_transcribe(file: UploadFile = File(...)):
+    data = await file.read()
+    suffix = Path(file.filename or "audio.webm").suffix or ".webm"
+    try:
+        text = audio.transcribe(data, suffix=suffix)
+    except audio.AudioUnavailable as e:
+        raise HTTPException(status_code=503, detail=e.reason) from e
+    return {"text": text}
+
+
+class TtsRequest(BaseModel):
+    text: str
+
+
+@app.post("/api/audio/tts")
+def audio_tts(req: TtsRequest):
+    try:
+        wav = audio.synthesize(req.text)
+    except audio.AudioUnavailable as e:
+        raise HTTPException(status_code=503, detail=e.reason) from e
+    return Response(content=wav, media_type="audio/wav")
 
 
 class ModelPullRequest(BaseModel):
@@ -854,6 +888,7 @@ def _asset_hash() -> str:
         "js/onboarding.js",
         "js/keybindings.js",
         "js/recovery.js",
+        "js/voice.js",
         "css/app.css",
     ):
         p = os.path.join(STATIC_DIR, rel)
