@@ -63,3 +63,6 @@ nav:
       - Monitoring: ops/monitoring.md
       - Backups: ops/backups.md
       - Updating: ops/updating.md
+  - Release:
+      - Notes v1.0: RELEASE_NOTES_v1.0.md
+      - Repo metadata: GITHUB_METADATA.md
