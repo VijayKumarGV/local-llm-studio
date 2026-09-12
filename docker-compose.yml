@@ -1,0 +1,61 @@
+# One-command local stack: Ollama + Local LLM Studio.
+#
+# Usage:
+#   docker compose up -d            # start in background
+#   docker compose logs -f studio   # tail app logs
+#   docker compose down             # stop; data persists on the named volumes
+#   docker compose down -v          # stop AND wipe workspace/models
+#
+# First run:
+#   1. `docker compose up -d`
+#   2. `docker compose exec ollama ollama pull qwen2.5:32b nomic-embed-text`
+#   3. Visit http://127.0.0.1:8080
+#
+# Auth: on first run the server generates a session token and writes it to
+# `/data/token` inside the studio container. Read it with:
+#   docker compose exec studio cat /data/token
+# Then paste into: http://127.0.0.1:8080/auth?token=<that-token>
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: studio-ollama
+    volumes:
+      - ollama_models:/root/.ollama
+    ports:
+      # Expose only to localhost — no LAN access to the model server.
+      - "127.0.0.1:11434:11434"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: local-llm-studio:latest
+    container_name: studio-app
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+      # SESSION_TOKEN — leave unset to have the server auto-generate one.
+      # To bring your own: `SESSION_TOKEN=… docker compose up`
+      SESSION_TOKEN: ${SESSION_TOKEN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - studio_data:/data
+    ports:
+      # Only localhost — flip to `8080:8080` if you deliberately want LAN access.
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+volumes:
+  ollama_models:
+    name: studio_ollama_models
+  studio_data:
+    name: studio_data
