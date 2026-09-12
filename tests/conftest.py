@@ -46,13 +46,17 @@ def temp_db(monkeypatch: pytest.MonkeyPatch) -> str:
 @pytest.fixture
 def fresh_schema(temp_db: str) -> str:
     """Initialize every schema against the isolated DB. Returns the path."""
-    from backend import database, rag, long_term_memory, session_notes, feedback
+    from backend import database, rag, long_term_memory, session_notes, feedback, artifacts, citations
 
     database.init_db()
     rag.ensure_schema()
     long_term_memory.ensure_schema()
     session_notes.ensure_schema()
     feedback.ensure_schema()
+    # These modules run their init_*_table() at import time (before our monkeypatch
+    # of DB_PATH takes effect), so we re-run them explicitly here.
+    artifacts.init_artifacts_table()
+    citations.init_citations_table()
     return temp_db
 
 
