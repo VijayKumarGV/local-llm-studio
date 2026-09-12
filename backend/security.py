@@ -7,11 +7,11 @@ scratch directory.
 """
 
 import os
-import sys
-import shutil
 import platform
+import shutil
 import subprocess
-from typing import Dict, Any, Tuple
+import sys
+from typing import Any
 
 WORKSPACE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAX_STDOUT_BYTES = 50 * 1024  # 50 KB max stdout/stderr
@@ -47,6 +47,7 @@ class SecurityException(Exception):
 # 1. STRICT PATH SANITIZATION
 # ==========================================
 
+
 def sanitize_and_resolve_path(target_path: str, base_dir: str = WORKSPACE_DIR) -> str:
     """
     Ensure the resolved path is strictly contained within base_dir.
@@ -72,7 +73,7 @@ def sanitize_and_resolve_path(target_path: str, base_dir: str = WORKSPACE_DIR) -
         real_target = os.path.realpath(resolved)
         real_base = os.path.realpath(base_dir)
     except Exception as e:
-        raise SecurityException(f"Failed to resolve path: {e}")
+        raise SecurityException(f"Failed to resolve path: {e}") from e
 
     # Check common prefix
     common = os.path.commonpath([real_target, real_base])
@@ -86,7 +87,8 @@ def sanitize_and_resolve_path(target_path: str, base_dir: str = WORKSPACE_DIR) -
 # 2. PYTHON EXECUTION SANDBOX
 # ==========================================
 
-def run_sandboxed_python(code: str, timeout_seconds: int = 15) -> Dict[str, Any]:
+
+def run_sandboxed_python(code: str, timeout_seconds: int = 15) -> dict[str, Any]:
     """
     Executes Python code in an isolated subprocess with strict timeouts, output
     capping, and — on macOS — a `sandbox-exec` deny-by-default profile that
@@ -131,10 +133,7 @@ def run_sandboxed_python(code: str, timeout_seconds: int = 15) -> Dict[str, Any]
             }
         except subprocess.TimeoutExpired:
             proc.kill()
-            return {
-                "status": "timeout",
-                "error": f"Execution timed out after {timeout_seconds} seconds."
-            }
+            return {"status": "timeout", "error": f"Execution timed out after {timeout_seconds} seconds."}
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
@@ -149,11 +148,11 @@ DEFAULT_TOOL_PERMISSIONS = {
     "read_file": "auto_allow",
     "list_files": "auto_allow",
     "execute_python_code": "require_approval",  # Safe by default: requires human approval
-    "create_artifact": "auto_allow"
+    "create_artifact": "auto_allow",
 }
 
 
-def check_tool_permission(tool_name: str, user_settings: Dict[str, str]) -> str:
+def check_tool_permission(tool_name: str, user_settings: dict[str, str]) -> str:
     """Returns 'auto_allow', 'require_approval', or 'disabled'."""
     setting_key = f"perm_{tool_name}"
     return user_settings.get(setting_key, DEFAULT_TOOL_PERMISSIONS.get(tool_name, "require_approval"))

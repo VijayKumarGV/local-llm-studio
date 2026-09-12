@@ -22,19 +22,21 @@ import json
 import re
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 import numpy as np
 
 from backend import database
 from backend.ollama_client import get_ollama_client
-from backend.rag import _embed_batch, _current_model, _cosine
+from backend.rag import _cosine, _current_model, _embed_batch
 
 DEFAULT_EXTRACTION_MODEL = "qwen2.5:32b"  # reliable JSON output; 1B/3B models hallucinate too much here
 
 
 def _extraction_model() -> str:
     return database.get_settings().get("memory_extraction_model") or DEFAULT_EXTRACTION_MODEL
+
+
 MAX_MEMORIES_PER_EXTRACTION = 12
 
 _EXTRACTION_SYSTEM = (
@@ -48,7 +50,7 @@ _EXTRACTION_SYSTEM = (
     '{"facts": [ {"fact": "…", "category": "…"}, ... ] }\n'
     "Each fact is one clear sentence. Category is one of: "
     "user_profile | preference | project_state | past_incident | general. "
-    "Return {\"facts\": []} if nothing durable came up. "
+    'Return {"facts": []} if nothing durable came up. '
     "Return ONLY the JSON object — no preamble, no code fences, no commentary."
 )
 
@@ -76,7 +78,7 @@ def ensure_schema() -> None:
         conn.commit()
 
 
-def _parse_facts(raw: str) -> List[Dict[str, str]]:
+def _parse_facts(raw: str) -> list[dict[str, str]]:
     """LLMs give back arrays, single objects, or objects wrapping a `facts`
     array. Accept all three."""
     if not raw:
@@ -97,7 +99,7 @@ def _parse_facts(raw: str) -> List[Dict[str, str]]:
         return []
 
     # Unwrap common shapes: {"facts":[...]}, {"memories":[...]}, or single {fact:...}
-    items: List[Any] = []
+    items: list[Any] = []
     if isinstance(data, list):
         items = data
     elif isinstance(data, dict):
@@ -113,10 +115,12 @@ def _parse_facts(raw: str) -> List[Dict[str, str]]:
     out = []
     for item in items:
         if isinstance(item, dict) and item.get("fact"):
-            out.append({
-                "fact": str(item["fact"])[:400],
-                "category": str(item.get("category") or "general"),
-            })
+            out.append(
+                {
+                    "fact": str(item["fact"])[:400],
+                    "category": str(item.get("category") or "general"),
+                }
+            )
         elif isinstance(item, str):
             out.append({"fact": item[:400], "category": "general"})
     return out[:MAX_MEMORIES_PER_EXTRACTION]
@@ -125,7 +129,7 @@ def _parse_facts(raw: str) -> List[Dict[str, str]]:
 async def extract_from_conversation(
     conversation_id: str,
     replace_existing: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run the extraction model over a conversation and store the facts."""
     ensure_schema()
     conv = database.get_conversation(conversation_id)
@@ -135,9 +139,7 @@ async def extract_from_conversation(
     if len(messages) < 2:
         return {"status": "empty", "extracted": 0}
 
-    transcript = "\n".join(
-        f"{m['role'].upper()}: {m['content'][:800]}" for m in messages if m.get("content")
-    )
+    transcript = "\n".join(f"{m['role'].upper()}: {m['content'][:800]}" for m in messages if m.get("content"))
     if len(transcript) > 16000:
         transcript = transcript[-16000:]
 
@@ -177,7 +179,7 @@ async def extract_from_conversation(
                 "DELETE FROM long_term_memory WHERE source_conversation_id = ?",
                 (conversation_id,),
             )
-        for f, vec in zip(facts, vectors):
+        for f, vec in zip(facts, vectors, strict=True):
             mid = str(uuid.uuid4())
             conn.execute(
                 "INSERT INTO long_term_memory (id, fact, category, project_id, source_conversation_id, embedding, embedding_model, dim, created_at) "
@@ -201,9 +203,9 @@ async def extract_from_conversation(
 
 async def recall(
     query: str,
-    project_id: Optional[str] = None,
+    project_id: str | None = None,
     top_k: int = 5,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Retrieve top-k relevant memories. Includes global memories (project_id
     IS NULL) plus project-scoped ones."""
     ensure_schema()
@@ -265,7 +267,7 @@ async def recall(
     ]
 
 
-def list_memories(project_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+def list_memories(project_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
     ensure_schema()
     with database.get_connection() as conn:
         cur = conn.cursor()

@@ -4,19 +4,34 @@ Coordinates the Agent Orchestrator, SQLite persistence, Artifact engine,
 model capability detection, and workspace backup/restore.
 """
 
-import os
-import sys
-import json
-import uuid
-import shutil
 import asyncio
 import logging
-from datetime import datetime
-from typing import Optional, List, Dict, Any
+import os
+import shutil
+import uuid
 from contextlib import asynccontextmanager
+from typing import Any
 
-import httpx
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+from backend import (
+    artifacts,
+    backup,
+    database,
+    extractors,
+    feedback,
+    long_term_memory,
+    model_capabilities,
+    rag,
+    session_notes,
+)
+from backend.agent_orchestrator import AgentOrchestrator
+from backend.migrations import apply_migrations
+from backend.ollama_client import close_ollama_client, get_ollama_client
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO"),
@@ -24,20 +39,12 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger("studio")
-from fastapi.responses import StreamingResponse, JSONResponse, FileResponse, Response
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-
-from backend import database, agent_tools, artifacts, backup, model_capabilities, rag, long_term_memory, extractors, session_notes, feedback
-from backend.agent_orchestrator import AgentOrchestrator
-from backend.ollama_client import get_ollama_client, close_ollama_client
-from backend.migrations import apply_migrations
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -70,52 +77,58 @@ orchestrator = AgentOrchestrator()
 # MODELS & SCHEMAS
 # ==========================================
 
+
 class ProjectCreate(BaseModel):
     name: str
-    description: Optional[str] = ""
-    system_instructions: Optional[str] = ""
-    icon: Optional[str] = "📁"
-    color: Optional[str] = "#38bdf8"
+    description: str | None = ""
+    system_instructions: str | None = ""
+    icon: str | None = "📁"
+    color: str | None = "#38bdf8"
+
 
 class ProjectUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    system_instructions: Optional[str] = None
-    icon: Optional[str] = None
-    color: Optional[str] = None
-    pinned: Optional[int] = None
+    name: str | None = None
+    description: str | None = None
+    system_instructions: str | None = None
+    icon: str | None = None
+    color: str | None = None
+    pinned: int | None = None
+
 
 class ConversationCreate(BaseModel):
-    title: Optional[str] = "New Conversation"
-    project_id: Optional[str] = None
-    model: Optional[str] = "qwen2.5:32b"
-    system_prompt: Optional[str] = ""
-    temperature: Optional[float] = 0.7
+    title: str | None = "New Conversation"
+    project_id: str | None = None
+    model: str | None = "qwen2.5:32b"
+    system_prompt: str | None = ""
+    temperature: float | None = 0.7
+
 
 class ConversationUpdate(BaseModel):
-    title: Optional[str] = None
-    project_id: Optional[str] = None
-    model: Optional[str] = None
-    system_prompt: Optional[str] = None
-    temperature: Optional[float] = None
-    pinned: Optional[int] = None
-    archived: Optional[int] = None
+    title: str | None = None
+    project_id: str | None = None
+    model: str | None = None
+    system_prompt: str | None = None
+    temperature: float | None = None
+    pinned: int | None = None
+    archived: int | None = None
+
 
 class ChatRequest(BaseModel):
     conversation_id: str
     message: str
-    model: Optional[str] = "qwen2.5:32b"
-    system_prompt: Optional[str] = None
-    temperature: Optional[float] = 0.7
-    enable_web_search: Optional[bool] = False
-    enable_code_execution: Optional[bool] = False
-    think_deeply: Optional[bool] = False
-    attachments: Optional[List[Dict[str, Any]]] = None
+    model: str | None = "qwen2.5:32b"
+    system_prompt: str | None = None
+    temperature: float | None = 0.7
+    enable_web_search: bool | None = False
+    enable_code_execution: bool | None = False
+    think_deeply: bool | None = False
+    attachments: list[dict[str, Any]] | None = None
 
 
 # ==========================================
 # SYSTEM & OLLAMA ENDPOINTS
 # ==========================================
+
 
 @app.post("/api/memory/extract")
 async def memory_extract(req: Request):
@@ -131,7 +144,7 @@ async def memory_extract(req: Request):
 
 
 @app.get("/api/memory")
-def memory_list(project_id: Optional[str] = None, limit: int = 100):
+def memory_list(project_id: str | None = None, limit: int = 100):
     return {"status": "success", "memories": long_term_memory.list_memories(project_id, limit)}
 
 
@@ -142,7 +155,7 @@ def memory_delete(memory_id: str):
 
 
 @app.get("/api/rag/query")
-async def rag_query(q: str, project_id: Optional[str] = None, conversation_id: Optional[str] = None, top_k: int = 6):
+async def rag_query(q: str, project_id: str | None = None, conversation_id: str | None = None, top_k: int = 6):
     """Debug endpoint: run retrieval and return hits + hybrid scores. Lets you
     eyeball retrieval quality without opening a chat."""
     if not q.strip():
@@ -208,9 +221,11 @@ def get_model_caps(name: str):
 # PROJECTS ENDPOINTS
 # ==========================================
 
+
 @app.get("/api/projects")
 def list_projects():
     return {"status": "success", "projects": database.list_projects()}
+
 
 @app.post("/api/projects")
 def create_project(data: ProjectCreate):
@@ -219,9 +234,10 @@ def create_project(data: ProjectCreate):
         description=data.description or "",
         system_instructions=data.system_instructions or "",
         icon=data.icon or "📁",
-        color=data.color or "#38bdf8"
+        color=data.color or "#38bdf8",
     )
     return {"status": "success", "project": proj}
+
 
 @app.get("/api/projects/{project_id}")
 def get_project(project_id: str):
@@ -230,11 +246,13 @@ def get_project(project_id: str):
         raise HTTPException(status_code=404, detail="Project not found")
     return {"status": "success", "project": proj}
 
+
 @app.patch("/api/projects/{project_id}")
 def update_project(project_id: str, data: ProjectUpdate):
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     proj = database.update_project(project_id, **update_data)
     return {"status": "success", "project": proj}
+
 
 @app.delete("/api/projects/{project_id}")
 def delete_project(project_id: str):
@@ -246,10 +264,12 @@ def delete_project(project_id: str):
 # CONVERSATIONS ENDPOINTS
 # ==========================================
 
+
 @app.get("/api/conversations")
-def list_conversations(project_id: Optional[str] = None, include_archived: bool = False):
+def list_conversations(project_id: str | None = None, include_archived: bool = False):
     convs = database.list_conversations(project_id=project_id, include_archived=include_archived)
     return {"status": "success", "conversations": convs}
+
 
 @app.post("/api/conversations")
 def create_conversation(data: ConversationCreate):
@@ -258,9 +278,10 @@ def create_conversation(data: ConversationCreate):
         project_id=data.project_id,
         model=data.model or "qwen2.5:32b",
         system_prompt=data.system_prompt or "",
-        temperature=data.temperature or 0.7
+        temperature=data.temperature or 0.7,
     )
     return {"status": "success", "conversation": conv}
+
 
 @app.get("/api/conversations/{conv_id}")
 def get_conversation(conv_id: str):
@@ -269,16 +290,19 @@ def get_conversation(conv_id: str):
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {"status": "success", "conversation": conv}
 
+
 @app.patch("/api/conversations/{conv_id}")
 def update_conversation(conv_id: str, data: ConversationUpdate):
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     conv = database.update_conversation(conv_id, **update_data)
     return {"status": "success", "conversation": conv}
 
+
 @app.delete("/api/conversations/{conv_id}")
 def delete_conversation(conv_id: str):
     database.delete_conversation(conv_id)
     return {"status": "success"}
+
 
 @app.post("/api/conversations/{conv_id}/duplicate")
 def duplicate_conversation(conv_id: str):
@@ -286,6 +310,7 @@ def duplicate_conversation(conv_id: str):
     if not new_conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {"status": "success", "conversation": new_conv}
+
 
 @app.post("/api/conversations/{conv_id}/branch")
 async def branch_conversation_endpoint(conv_id: str, req: Request):
@@ -298,6 +323,7 @@ async def branch_conversation_endpoint(conv_id: str, req: Request):
         raise HTTPException(status_code=404, detail="Failed to branch conversation")
     return {"status": "success", "conversation": new_conv}
 
+
 @app.delete("/api/messages/{message_id}")
 def delete_message(message_id: str):
     database.delete_message(message_id)
@@ -308,10 +334,12 @@ def delete_message(message_id: str):
 # ARTIFACTS API
 # ==========================================
 
+
 @app.get("/api/artifacts")
-def get_artifacts(conversation_id: Optional[str] = None, project_id: Optional[str] = None):
+def get_artifacts(conversation_id: str | None = None, project_id: str | None = None):
     items = artifacts.list_artifacts(conversation_id, project_id)
     return {"status": "success", "artifacts": items}
+
 
 @app.get("/api/artifacts/{artifact_id}")
 def get_single_artifact(artifact_id: str):
@@ -319,6 +347,7 @@ def get_single_artifact(artifact_id: str):
     if not art:
         raise HTTPException(status_code=404, detail="Artifact not found")
     return {"status": "success", "artifact": art}
+
 
 @app.get("/api/artifacts/{artifact_id}/download")
 def download_artifact(artifact_id: str):
@@ -328,7 +357,7 @@ def download_artifact(artifact_id: str):
     return Response(
         content=art["content"],
         media_type="text/plain",
-        headers={"Content-Disposition": f"attachment; filename={art['name']}"}
+        headers={"Content-Disposition": f"attachment; filename={art['name']}"},
     )
 
 
@@ -336,15 +365,13 @@ def download_artifact(artifact_id: str):
 # FILE UPLOAD & MANAGEMENT
 # ==========================================
 
+
 @app.post("/api/files/upload")
 async def upload_file(
-    file: UploadFile = File(...),
-    conversation_id: Optional[str] = Form(None),
-    project_id: Optional[str] = Form(None)
+    file: UploadFile = File(...), conversation_id: str | None = Form(None), project_id: str | None = Form(None)
 ):
     try:
         fid = str(uuid.uuid4())
-        ext = os.path.splitext(file.filename)[1]
         save_filename = f"{fid}_{file.filename}"
         save_path = os.path.join(UPLOAD_DIR, save_filename)
 
@@ -368,7 +395,7 @@ async def upload_file(
             extracted_text=extracted_preview,
         )
 
-        rag_result: Dict[str, Any] = {"status": "skipped", "reason": "no extractable text"}
+        rag_result: dict[str, Any] = {"status": "skipped", "reason": "no extractable text"}
         if full_text.strip():
             try:
                 rag_result = await rag.ingest_file(record["id"], text=full_text)
@@ -385,7 +412,7 @@ async def upload_file(
         }
     except Exception as e:
         log.exception("upload failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/feedback")
@@ -400,7 +427,7 @@ async def feedback_record(req: Request):
 
 
 @app.get("/api/feedback")
-def feedback_get(message_id: Optional[str] = None, conversation_id: Optional[str] = None):
+def feedback_get(message_id: str | None = None, conversation_id: str | None = None):
     if message_id:
         return {"status": "success", "feedback": feedback.get_for_message(message_id)}
     return {"status": "success", "summary": feedback.summary(conversation_id)}
@@ -422,7 +449,7 @@ async def chat_compare(req: Request):
 
     client = get_ollama_client()
 
-    async def _one(model_name: str) -> Dict[str, Any]:
+    async def _one(model_name: str) -> dict[str, Any]:
         payload = {
             "model": model_name,
             "stream": False,
@@ -465,6 +492,7 @@ async def sandbox_run(req: Request):
         raise HTTPException(status_code=400, detail="code required")
     timeout_s = int(body.get("timeout", 10))
     from backend import security
+
     result = security.run_sandboxed_python(code, timeout_seconds=timeout_s)
     return result
 
@@ -482,7 +510,7 @@ async def upload_from_url(req: Request):
     try:
         text, title = extractors.fetch_url_as_text(url)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Fetch failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Fetch failed: {e}") from e
     if not text or len(text) < 100:
         raise HTTPException(status_code=422, detail="No extractable main-content found at URL")
 
@@ -504,7 +532,7 @@ async def upload_from_url(req: Request):
         project_id=project_id,
         extracted_text=(header + text)[:4000],
     )
-    rag_result: Dict[str, Any] = {"status": "skipped"}
+    rag_result: dict[str, Any] = {"status": "skipped"}
     try:
         rag_result = await rag.ingest_file(record["id"], text=header + text)
     except Exception as e:
@@ -527,19 +555,21 @@ def get_file_content(file_id: str):
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(record["filepath"], filename=record["filename"], media_type=record["mime_type"])
 
+
 @app.get("/api/projects/{project_id}/files")
 def get_project_files(project_id: str):
     files = database.list_files_by_project(project_id)
     return {"status": "success", "files": files}
 
+
 @app.delete("/api/files/{file_id}")
 def delete_file_endpoint(file_id: str):
+    import contextlib
+
     record = database.get_file(file_id)
     if record and os.path.exists(record["filepath"]):
-        try:
+        with contextlib.suppress(OSError):
             os.remove(record["filepath"])
-        except Exception:
-            pass
     database.delete_file(file_id)
     return {"status": "success"}
 
@@ -548,10 +578,12 @@ def delete_file_endpoint(file_id: str):
 # WORKSPACE BACKUP & RESTORE
 # ==========================================
 
+
 @app.get("/api/workspace/export")
 def export_workspace_endpoint():
     data = backup.export_full_workspace()
     return JSONResponse(content=data)
+
 
 @app.post("/api/workspace/import")
 async def import_workspace_endpoint(req: Request):
@@ -564,14 +596,17 @@ async def import_workspace_endpoint(req: Request):
 # GLOBAL SEARCH & SETTINGS
 # ==========================================
 
+
 @app.get("/api/search")
 def search(q: str):
     results = database.global_search(q)
     return {"status": "success", "results": results}
 
+
 @app.get("/api/settings")
 def get_settings():
     return {"status": "success", "settings": database.get_settings()}
+
 
 @app.post("/api/settings")
 async def save_settings(req: Request):
@@ -584,6 +619,7 @@ async def save_settings(req: Request):
 # ==========================================
 # MULTI-STEP AGENT STREAMING
 # ==========================================
+
 
 @app.post("/api/chat/stream")
 async def stream_chat(req: ChatRequest):
@@ -599,9 +635,9 @@ async def stream_chat(req: ChatRequest):
             enable_web_search=req.enable_web_search or False,
             enable_code_execution=req.enable_code_execution or False,
             think_deeply=req.think_deeply or False,
-            attachments=req.attachments or []
+            attachments=req.attachments or [],
         ),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
     )
 
 
@@ -613,6 +649,7 @@ def _asset_hash() -> str:
     """Short hash of the primary JS + CSS files. Recomputed on every GET /
     so browsers auto-invalidate when we ship changes."""
     import hashlib
+
     h = hashlib.sha256()
     for rel in ("js/app.js", "js/markdown.js", "js/api.js", "js/state.js", "css/app.css"):
         p = os.path.join(STATIC_DIR, rel)
@@ -626,7 +663,7 @@ def _asset_hash() -> str:
 
 @app.get("/")
 def serve_index():
-    with open(os.path.join(STATIC_DIR, "index.html"), "r", encoding="utf-8") as fh:
+    with open(os.path.join(STATIC_DIR, "index.html"), encoding="utf-8") as fh:
         html = fh.read()
     html = html.replace("__ASSET_HASH__", _asset_hash())
     return Response(content=html, media_type="text/html")
@@ -634,4 +671,5 @@ def serve_index():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("backend.server:app", host="127.0.0.1", port=8080, reload=False)

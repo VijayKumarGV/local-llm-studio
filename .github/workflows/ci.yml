@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-14  # Apple Silicon runner — matches the target dev machine
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install runtime + dev deps
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
+          .venv/bin/pip install pytest pytest-asyncio pytest-cov pytest-httpx ruff mypy reportlab
+
+      - name: Ruff (lint)
+        run: .venv/bin/ruff check backend/ tests/
+
+      - name: Ruff (format check)
+        run: .venv/bin/ruff format --check backend/ tests/
+
+      - name: Mypy
+        run: .venv/bin/mypy backend/ || true   # non-blocking until Week 2 Day 3
+
+      - name: Pytest
+        run: .venv/bin/pytest --cov=backend --cov-report=xml --cov-report=term
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: htmlcov/
+          if-no-files-found: ignore

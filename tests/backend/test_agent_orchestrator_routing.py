@@ -31,17 +31,26 @@ class TestHasImageAttachment:
         assert _has_image_attachment([{"filename": "doc.pdf"}]) is False
 
     def test_mixed_list_returns_true_if_any_image(self) -> None:
-        assert _has_image_attachment([
-            {"filename": "readme.md"},
-            {"filename": "chart.png"},
-        ]) is True
+        assert (
+            _has_image_attachment(
+                [
+                    {"filename": "readme.md"},
+                    {"filename": "chart.png"},
+                ]
+            )
+            is True
+        )
 
 
 class TestRouteModel:
     def test_disabled_returns_requested_unchanged(self) -> None:
         settings = {"auto_route_model": "false"}
         chosen, reason = route_model(
-            "qwen2.5:32b", "why does TLS work", None, settings, INSTALLED_FULL,
+            "qwen2.5:32b",
+            "why does TLS work",
+            None,
+            settings,
+            INSTALLED_FULL,
         )
         assert chosen == "qwen2.5:32b"
         assert "disabled" in reason
@@ -69,14 +78,22 @@ class TestRouteModel:
 
     def test_trivial_question_routes_to_tiny_model(self) -> None:
         chosen, _ = route_model(
-            "qwen2.5:32b", "hi", None, {}, INSTALLED_FULL,
+            "qwen2.5:32b",
+            "hi",
+            None,
+            {},
+            INSTALLED_FULL,
         )
         assert chosen == "llama3.2:1b"
 
     def test_short_but_code_keeps_coder(self) -> None:
         # `def foo():` is short but has code hint → coder wins over trivial
         chosen, _ = route_model(
-            "qwen2.5:32b", "def foo():", None, {}, INSTALLED_FULL,
+            "qwen2.5:32b",
+            "def foo():",
+            None,
+            {},
+            INSTALLED_FULL,
         )
         assert chosen == "qwen2.5-coder:32b"
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Any
 
 from backend import database
 
@@ -30,7 +30,7 @@ def ensure_schema() -> None:
         conn.commit()
 
 
-def record(message_id: str, rating: int, note: str = "") -> Dict[str, Any]:
+def record(message_id: str, rating: int, note: str = "") -> dict[str, Any]:
     """Record a rating. Later ratings on the same message replace earlier ones."""
     if rating not in (-1, 0, 1):
         return {"status": "error", "error": "rating must be -1, 0, or 1"}
@@ -54,7 +54,7 @@ def record(message_id: str, rating: int, note: str = "") -> Dict[str, Any]:
     return {"status": "success", "message_id": message_id, "rating": rating}
 
 
-def get_for_message(message_id: str) -> Optional[Dict[str, Any]]:
+def get_for_message(message_id: str) -> dict[str, Any] | None:
     ensure_schema()
     with database.get_connection() as conn:
         cur = conn.cursor()
@@ -67,7 +67,7 @@ def get_for_message(message_id: str) -> Optional[Dict[str, Any]]:
         return dict(row) if row else None
 
 
-def summary(conversation_id: Optional[str] = None) -> Dict[str, Any]:
+def summary(conversation_id: str | None = None) -> dict[str, Any]:
     ensure_schema()
     with database.get_connection() as conn:
         cur = conn.cursor()

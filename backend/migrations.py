@@ -1,21 +1,18 @@
 """Thin wrapper around yoyo-migrations for the SQLite workspace DB."""
 
-import os
 import logging
-from typing import Optional
+import os
 
 log = logging.getLogger("studio.migrations")
 
-MIGRATIONS_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "migrations"
-)
+MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "migrations")
 
 
-def apply_migrations(db_path: str) -> Optional[int]:
+def apply_migrations(db_path: str) -> int | None:
     """Apply all outstanding migrations. Returns the number applied, or None
     if yoyo isn't installed."""
     try:
-        from yoyo import read_migrations, get_backend
+        from yoyo import get_backend, read_migrations
     except Exception as e:
         log.warning("yoyo not available, skipping migrations: %s", e)
         return None

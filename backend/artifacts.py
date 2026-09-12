@@ -7,7 +7,7 @@ import os
 import re
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from backend import database
 
@@ -46,10 +46,10 @@ def save_artifact(
     name: str,
     artifact_type: str,
     content: str,
-    conversation_id: Optional[str] = None,
-    project_id: Optional[str] = None,
-    language: str = ""
-) -> Dict[str, Any]:
+    conversation_id: str | None = None,
+    project_id: str | None = None,
+    language: str = "",
+) -> dict[str, Any]:
     """Persist artifact to disk and SQLite."""
     now = datetime.now().isoformat()
     art_id = str(uuid.uuid4())
@@ -64,10 +64,13 @@ def save_artifact(
         print(f"Failed to write physical artifact: {e}")
 
     with database.get_connection() as conn:
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO artifacts (id, conversation_id, project_id, name, type, language, content, size_bytes, version, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-        """, (art_id, conversation_id, project_id, name, artifact_type, language, content, size_bytes, now, now))
+        """,
+            (art_id, conversation_id, project_id, name, artifact_type, language, content, size_bytes, now, now),
+        )
         conn.commit()
 
     return {
@@ -79,11 +82,11 @@ def save_artifact(
         "size_bytes": size_bytes,
         "conversation_id": conversation_id,
         "project_id": project_id,
-        "created_at": now
+        "created_at": now,
     }
 
 
-def get_artifact(artifact_id: str) -> Optional[Dict[str, Any]]:
+def get_artifact(artifact_id: str) -> dict[str, Any] | None:
     with database.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM artifacts WHERE id = ?", (artifact_id,))
@@ -91,11 +94,13 @@ def get_artifact(artifact_id: str) -> Optional[Dict[str, Any]]:
         return dict(row) if row else None
 
 
-def list_artifacts(conversation_id: Optional[str] = None, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
+def list_artifacts(conversation_id: str | None = None, project_id: str | None = None) -> list[dict[str, Any]]:
     with database.get_connection() as conn:
         cursor = conn.cursor()
         if conversation_id:
-            cursor.execute("SELECT * FROM artifacts WHERE conversation_id = ? ORDER BY created_at DESC", (conversation_id,))
+            cursor.execute(
+                "SELECT * FROM artifacts WHERE conversation_id = ? ORDER BY created_at DESC", (conversation_id,)
+            )
         elif project_id:
             cursor.execute("SELECT * FROM artifacts WHERE project_id = ? ORDER BY created_at DESC", (project_id,))
         else:
@@ -103,7 +108,9 @@ def list_artifacts(conversation_id: Optional[str] = None, project_id: Optional[s
         return [dict(r) for r in cursor.fetchall()]
 
 
-def extract_and_save_artifacts(text: str, conversation_id: Optional[str] = None, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
+def extract_and_save_artifacts(
+    text: str, conversation_id: str | None = None, project_id: str | None = None
+) -> list[dict[str, Any]]:
     """
     Scans generated text for <artifact name="..." type="..." language="...">...</artifact> tags,
     saves them to the database, and returns the records.
@@ -114,13 +121,15 @@ def extract_and_save_artifacts(text: str, conversation_id: Optional[str] = None,
 
     for name, art_type, lang, content in matches:
         resolved_type = art_type or "code"
-        created.append(save_artifact(
-            name=name.strip(),
-            artifact_type=resolved_type.strip(),
-            content=content.strip(),
-            conversation_id=conversation_id,
-            project_id=project_id,
-            language=lang.strip() if lang else ""
-        ))
+        created.append(
+            save_artifact(
+                name=name.strip(),
+                artifact_type=resolved_type.strip(),
+                content=content.strip(),
+                conversation_id=conversation_id,
+                project_id=project_id,
+                language=lang.strip() if lang else "",
+            )
+        )
 
     return created

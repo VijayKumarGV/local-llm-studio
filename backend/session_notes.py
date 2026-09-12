@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from backend import database
 
@@ -34,7 +34,7 @@ def ensure_schema() -> None:
         conn.commit()
 
 
-def save_note(conversation_id: str, text: str, note_key: str = "") -> Dict[str, Any]:
+def save_note(conversation_id: str, text: str, note_key: str = "") -> dict[str, Any]:
     if not conversation_id or not text:
         return {"status": "error", "error": "conversation_id and text required"}
     ensure_schema()
@@ -50,7 +50,7 @@ def save_note(conversation_id: str, text: str, note_key: str = "") -> Dict[str, 
     return {"status": "success", "id": nid, "note_key": note_key, "text": text}
 
 
-def read_notes(conversation_id: str, note_key: Optional[str] = None) -> List[Dict[str, Any]]:
+def read_notes(conversation_id: str, note_key: str | None = None) -> list[dict[str, Any]]:
     if not conversation_id:
         return []
     ensure_schema()
@@ -71,7 +71,7 @@ def read_notes(conversation_id: str, note_key: Optional[str] = None) -> List[Dic
         return [dict(r) for r in cur.fetchall()]
 
 
-def clear_notes(conversation_id: str, note_key: Optional[str] = None) -> int:
+def clear_notes(conversation_id: str, note_key: str | None = None) -> int:
     if not conversation_id:
         return 0
     ensure_schema()

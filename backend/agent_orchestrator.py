@@ -5,16 +5,17 @@ and re-enters the model loop with tool outputs until the model stops calling
 tools or MAX_AGENT_STEPS is reached.
 """
 
+import asyncio
+import json
 import os
 import re
-import json
 import uuid
-import asyncio
-from typing import AsyncGenerator, Dict, Any, List, Optional, Tuple
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import httpx
 
-from backend import database, agent_tools, artifacts, citations, security
+from backend import agent_tools, artifacts, citations, database, security
 from backend.context_manager import prepare_compacted_context
 from backend.model_capabilities import get_model_capabilities, validate_attachments_for_model
 from backend.ollama_client import get_ollama_client
@@ -33,9 +34,10 @@ _CODE_HINTS = re.compile(
 )
 
 
-def _list_installed_models_sync() -> List[str]:
+def _list_installed_models_sync() -> list[str]:
     """Synchronous best-effort installed-model list. Empty on any failure."""
     import urllib.request
+
     try:
         req = urllib.request.Request(f"{os.environ.get('OLLAMA_HOST', 'http://127.0.0.1:11434')}/api/tags")
         with urllib.request.urlopen(req, timeout=2) as resp:
@@ -45,7 +47,7 @@ def _list_installed_models_sync() -> List[str]:
         return []
 
 
-def _has_image_attachment(attachments: Optional[List[Dict[str, Any]]]) -> bool:
+def _has_image_attachment(attachments: list[dict[str, Any]] | None) -> bool:
     if not attachments:
         return False
     for a in attachments:
@@ -59,11 +61,11 @@ def _has_image_attachment(attachments: Optional[List[Dict[str, Any]]]) -> bool:
 def route_model(
     requested_model: str,
     user_message: str,
-    project_id: Optional[str],
-    settings: Dict[str, str],
-    installed: Optional[List[str]] = None,
-    attachments: Optional[List[Dict[str, Any]]] = None,
-) -> Tuple[str, str]:
+    project_id: str | None,
+    settings: dict[str, str],
+    installed: list[str] | None = None,
+    attachments: list[dict[str, Any]] | None = None,
+) -> tuple[str, str]:
     """Pick a model based on question shape + workspace + attachments + what's
     installed. Returns (chosen_model, reason). Falls back to requested_model on
     any doubt."""
@@ -116,30 +118,32 @@ def route_model(
     return requested_model, "default"
 
 
-def _setting_bool(settings: Dict[str, str], key: str, default: bool = True) -> bool:
+def _setting_bool(settings: dict[str, str], key: str, default: bool = True) -> bool:
     v = settings.get(key)
     if v is None:
         return default
     return str(v).lower() in ("1", "true", "yes", "on")
 
 
-def _tool_schemas() -> List[Dict[str, Any]]:
+def _tool_schemas() -> list[dict[str, Any]]:
     """Ollama-compatible function schemas built from the agent tool registry."""
     schemas = []
     for t in agent_tools.AVAILABLE_TOOLS:
-        schemas.append({
-            "type": "function",
-            "function": {
-                "name": t["name"],
-                "description": t["description"],
-                "parameters": t.get("parameters", {"type": "object", "properties": {}}),
-            },
-        })
+        schemas.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t["description"],
+                    "parameters": t.get("parameters", {"type": "object", "properties": {}}),
+                },
+            }
+        )
     return schemas
 
 
 class AgentOrchestrator:
-    def __init__(self, user_settings: Optional[Dict[str, str]] = None):
+    def __init__(self, user_settings: dict[str, str] | None = None):
         self._override_settings = user_settings
 
     @property
@@ -154,8 +158,8 @@ class AgentOrchestrator:
         enable_web_search: bool = False,
         enable_code_execution: bool = False,
         think_deeply: bool = False,
-        attachments: Optional[List[Dict[str, Any]]] = None,
-        cancellation_event: Optional[asyncio.Event] = None,
+        attachments: list[dict[str, Any]] | None = None,
+        cancellation_event: asyncio.Event | None = None,
     ) -> AsyncGenerator[str, None]:
         execution_id = str(uuid.uuid4())
         conv = database.get_conversation(conversation_id)
@@ -207,9 +211,10 @@ class AgentOrchestrator:
                         attachment_context += f"[File: {f['filename']}]\n{f['extracted_text']}\n\n"
 
         # RAG retrieval (opportunistic — silently no-ops if embeddings aren't set up)
-        rag_hits_for_grounding: List[str] = []
+        rag_hits_for_grounding: list[str] = []
         try:
             from backend import rag
+
             hits = await rag.retrieve(
                 query=user_message,
                 conversation_id=conversation_id,
@@ -233,16 +238,19 @@ class AgentOrchestrator:
                     yield f"event: citation\ndata: {json.dumps(cite)}\n\n"
                 # Emit a debug payload with all retrieval scores so the UI can
                 # show a "Retrieval details" panel.
-                debug_hits = [{
-                    "filename": h.get("filename"),
-                    "chunk_index": h.get("chunk_index"),
-                    "fused_score": h.get("score"),
-                    "rerank_score": h.get("rerank_score"),
-                    "vector_score": h.get("vector_score"),
-                    "vector_rank": h.get("vector_rank"),
-                    "bm25_rank": h.get("bm25_rank"),
-                    "snippet": (h.get("text") or "")[:400],
-                } for h in hits]
+                debug_hits = [
+                    {
+                        "filename": h.get("filename"),
+                        "chunk_index": h.get("chunk_index"),
+                        "fused_score": h.get("score"),
+                        "rerank_score": h.get("rerank_score"),
+                        "vector_score": h.get("vector_score"),
+                        "vector_rank": h.get("vector_rank"),
+                        "bm25_rank": h.get("bm25_rank"),
+                        "snippet": (h.get("text") or "")[:400],
+                    }
+                    for h in hits
+                ]
                 yield f"event: retrieval_debug\ndata: {json.dumps({'query': user_message, 'hits': debug_hits})}\n\n"
         except Exception:
             pass
@@ -251,6 +259,7 @@ class AgentOrchestrator:
         memory_context = ""
         try:
             from backend import long_term_memory
+
             memories = await long_term_memory.recall(
                 query=user_message,
                 project_id=conv.get("project_id"),
@@ -285,6 +294,7 @@ class AgentOrchestrator:
         # Session scratchpad — model's own notes from previous turns.
         try:
             from backend import session_notes
+
             notes_block = session_notes.format_for_prompt(conversation_id)
             if notes_block:
                 effective_system = effective_system + "\n\n" + notes_block
@@ -314,6 +324,7 @@ class AgentOrchestrator:
         caps_now = get_model_capabilities(model_name)
         if caps_now.get("vision") and attachments:
             import base64 as _b64
+
             image_b64s = []
             for att in attachments:
                 m = (att.get("mime_type") or "").lower()
@@ -340,9 +351,9 @@ class AgentOrchestrator:
         caps = get_model_capabilities(model_name)
         model_supports_tools = caps.get("tools", False)
 
-        tool_records: List[Dict[str, Any]] = []
-        created_citations: List[Dict[str, Any]] = []
-        created_artifacts: List[Dict[str, Any]] = []
+        tool_records: list[dict[str, Any]] = []
+        created_citations: list[dict[str, Any]] = []
+        created_artifacts: list[dict[str, Any]] = []
         final_content = ""
         total_tokens = 0
         final_tps = 0.0
@@ -355,11 +366,13 @@ class AgentOrchestrator:
             yield f"event: plan_step\ndata: {json.dumps({'step': step, 'action': 'Searching Web for Context'})}\n\n"
             yield f"event: tool_start\ndata: {json.dumps({'tool': 'search_web', 'title': 'Searching Web', 'query': user_message})}\n\n"
             search_res = agent_tools.search_web(user_message)
-            tool_records.append({
-                "tool": "search_web",
-                "arguments": {"query": user_message},
-                "result": search_res,
-            })
+            tool_records.append(
+                {
+                    "tool": "search_web",
+                    "arguments": {"query": user_message},
+                    "result": search_res,
+                }
+            )
             for r in search_res.get("results", [])[:3]:
                 cite = citations.add_citation(
                     message_id=user_msg["id"],
@@ -374,14 +387,16 @@ class AgentOrchestrator:
             yield f"event: tool_end\ndata: {json.dumps({'tool': 'search_web', 'status': search_res.get('status'), 'result': search_res})}\n\n"
 
             snippets = "\n".join(
-                f"- [{r.get('title')}]({r.get('url')}): {r.get('snippet')}"
-                for r in search_res.get("results", [])
+                f"- [{r.get('title')}]({r.get('url')}): {r.get('snippet')}" for r in search_res.get("results", [])
             )
-            messages_payload.insert(1, {
-                "role": "system",
-                "content": f"[Observation from Web Search for '{user_message}']:\n{snippets}\n"
-                           "Incorporate these verified facts into your response.",
-            })
+            messages_payload.insert(
+                1,
+                {
+                    "role": "system",
+                    "content": f"[Observation from Web Search for '{user_message}']:\n{snippets}\n"
+                    "Incorporate these verified facts into your response.",
+                },
+            )
 
         client = get_ollama_client()
         temperature = float(self.settings.get("default_temperature", 0.7))
@@ -390,7 +405,7 @@ class AgentOrchestrator:
         user_permissions = self.settings
 
         try:
-            for loop_iter in range(MAX_AGENT_STEPS):
+            for _loop_iter in range(MAX_AGENT_STEPS):
                 if cancellation_event and cancellation_event.is_set():
                     yield f"event: cancelled\ndata: {json.dumps({'message': 'Cancelled by user'})}\n\n"
                     return
@@ -406,7 +421,7 @@ class AgentOrchestrator:
                     payload["tools"] = available_tools
 
                 assistant_text = ""
-                assistant_tool_calls: List[Dict[str, Any]] = []
+                assistant_tool_calls: list[dict[str, Any]] = []
                 got_done = False
 
                 async with client.stream("POST", "/api/chat", json=payload) as resp:
@@ -461,14 +476,15 @@ class AgentOrchestrator:
                     break  # model produced its final answer
 
                 # Add the assistant turn to history so the model sees its own tool calls.
-                messages_payload.append({
-                    "role": "assistant",
-                    "content": assistant_text,
-                    "tool_calls": [
-                        {"function": {"name": c["name"], "arguments": c["arguments"]}}
-                        for c in assistant_tool_calls
-                    ],
-                })
+                messages_payload.append(
+                    {
+                        "role": "assistant",
+                        "content": assistant_text,
+                        "tool_calls": [
+                            {"function": {"name": c["name"], "arguments": c["arguments"]}} for c in assistant_tool_calls
+                        ],
+                    }
+                )
 
                 for call in assistant_tool_calls:
                     if cancellation_event and cancellation_event.is_set():
@@ -485,23 +501,46 @@ class AgentOrchestrator:
                         yield f"event: tool_denied\ndata: {json.dumps({'tool': tname, 'reason': result['error']})}\n\n"
                     elif perm == "require_approval":
                         if not enable_code_execution and tname == "execute_python_code":
-                            result = {"status": "denied", "error": "Code execution disabled. Toggle 'Code Exec' in the composer to allow."}
+                            result = {
+                                "status": "denied",
+                                "error": "Code execution disabled. Toggle 'Code Exec' in the composer to allow.",
+                            }
                             yield f"event: tool_denied\ndata: {json.dumps({'tool': tname, 'reason': result['error']})}\n\n"
                         else:
                             result = await self._run_tool(tname, targs, conversation_id, conv, step)
-                            async for evt in self._emit_tool_events(tname, targs, result, step, user_msg["id"], conversation_id, created_citations, created_artifacts):
+                            async for evt in self._emit_tool_events(
+                                tname,
+                                targs,
+                                result,
+                                step,
+                                user_msg["id"],
+                                conversation_id,
+                                created_citations,
+                                created_artifacts,
+                            ):
                                 yield evt
                     else:
                         result = await self._run_tool(tname, targs, conversation_id, conv, step)
-                        async for evt in self._emit_tool_events(tname, targs, result, step, user_msg["id"], conversation_id, created_citations, created_artifacts):
+                        async for evt in self._emit_tool_events(
+                            tname,
+                            targs,
+                            result,
+                            step,
+                            user_msg["id"],
+                            conversation_id,
+                            created_citations,
+                            created_artifacts,
+                        ):
                             yield evt
 
                     tool_records.append({"tool": tname, "arguments": targs, "result": result})
-                    messages_payload.append({
-                        "role": "tool",
-                        "name": tname,
-                        "content": json.dumps(result)[:6000],
-                    })
+                    messages_payload.append(
+                        {
+                            "role": "tool",
+                            "name": tname,
+                            "content": json.dumps(result)[:6000],
+                        }
+                    )
 
             # --- THINK-DEEPLY: iterative critique + revise (up to MAX_THINK_ITERATIONS) ---
             if think_deeply and final_content:
@@ -526,13 +565,17 @@ class AgentOrchestrator:
                         },
                     ]
                     critique_text = ""
-                    async with client.stream("POST", "/api/chat", json={
-                        "model": model_name,
-                        "messages": critique_prompt,
-                        "stream": True,
-                        "keep_alive": keep_alive,
-                        "options": {"temperature": 0.2},
-                    }) as cresp:
+                    async with client.stream(
+                        "POST",
+                        "/api/chat",
+                        json={
+                            "model": model_name,
+                            "messages": critique_prompt,
+                            "stream": True,
+                            "keep_alive": keep_alive,
+                            "options": {"temperature": 0.2},
+                        },
+                    ) as cresp:
                         cresp.raise_for_status()
                         async for line in cresp.aiter_lines():
                             if not line:
@@ -577,13 +620,17 @@ class AgentOrchestrator:
                         },
                     ]
                     revised = ""
-                    async with client.stream("POST", "/api/chat", json={
-                        "model": model_name,
-                        "messages": revise_prompt,
-                        "stream": True,
-                        "keep_alive": keep_alive,
-                        "options": {"temperature": temperature},
-                    }) as rresp:
+                    async with client.stream(
+                        "POST",
+                        "/api/chat",
+                        json={
+                            "model": model_name,
+                            "messages": revise_prompt,
+                            "stream": True,
+                            "keep_alive": keep_alive,
+                            "options": {"temperature": temperature},
+                        },
+                    ) as rresp:
                         rresp.raise_for_status()
                         async for line in rresp.aiter_lines():
                             if not line:
@@ -607,6 +654,7 @@ class AgentOrchestrator:
             if _setting_bool(settings_snapshot, "grounding_check", True) and rag_hits_for_grounding and final_content:
                 try:
                     from backend import grounding
+
                     check = await grounding.check(final_content, rag_hits_for_grounding)
                     yield f"event: grounding_check\ndata: {json.dumps(check)}\n\n"
                 except Exception as e:
@@ -641,11 +689,11 @@ class AgentOrchestrator:
     async def _run_tool(
         self,
         tool_name: str,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         conversation_id: str,
-        conv: Dict[str, Any],
+        conv: dict[str, Any],
         step: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         # Inject conversation_id into tools that need it but that the model
         # doesn't know about (scratchpad, artifacts).
         if tool_name in ("create_artifact", "save_note", "read_notes"):
@@ -657,7 +705,7 @@ class AgentOrchestrator:
                 asyncio.to_thread(agent_tools.dispatch_tool, tool_name, args),
                 timeout=TOOL_TIMEOUT_SECONDS,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {"status": "error", "error": f"Tool '{tool_name}' timed out after {TOOL_TIMEOUT_SECONDS}s"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
@@ -665,13 +713,13 @@ class AgentOrchestrator:
     async def _emit_tool_events(
         self,
         tname: str,
-        targs: Dict[str, Any],
-        result: Dict[str, Any],
+        targs: dict[str, Any],
+        result: dict[str, Any],
         step: int,
         user_msg_id: str,
         conversation_id: str,
-        created_citations: List[Dict[str, Any]],
-        created_artifacts: List[Dict[str, Any]],
+        created_citations: list[dict[str, Any]],
+        created_artifacts: list[dict[str, Any]],
     ) -> AsyncGenerator[str, None]:
         title = tname
         if tname == "create_artifact":

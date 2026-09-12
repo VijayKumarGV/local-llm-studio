@@ -3,14 +3,14 @@ Automated Verification Suite for Local LLM Studio Tier 2 Upgrades.
 Tests security sandbox, context compaction, model capabilities, artifacts, and backup/restore.
 """
 
-import sys
 import os
-import json
+import sys
 
 # Ensure parent directory is in python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend import security, model_capabilities, context_manager, artifacts, backup
+from backend import artifacts, backup, context_manager, model_capabilities, security
+
 
 def run_tests():
     print("==================================================")
@@ -40,19 +40,21 @@ def run_tests():
     dummy_history = [{"role": "user", "content": f"Turn {i}: " + ("data " * 200)} for i in range(45)]
     # Use a small-context model so compaction is guaranteed to trigger.
     compacted = context_manager.prepare_compacted_context(
-        model_name="moondream",   # 2048 context window → forces compaction
+        model_name="moondream",  # 2048 context window → forces compaction
         system_prompt="Base System",
         project_instructions="Project Scope",
         conversation_history=dummy_history,
         current_user_message="Current task",
-        file_attachments_context="Attached code preview"
+        file_attachments_context="Attached code preview",
     )
     tokens = context_manager.estimate_messages_tokens(compacted)
     caps = model_capabilities.get_model_capabilities("moondream")
     budget = int(caps["context_window"] * 0.75)
     assert tokens <= budget, f"Compaction overflowed budget: {tokens} > {budget}"
     assert any("[Context Compaction" in m["content"] for m in compacted), "Summary block missing"
-    print(f"  [PASS] Context compacted cleanly into {len(compacted)} turns ({tokens} estimated tokens, budget {budget}).")
+    print(
+        f"  [PASS] Context compacted cleanly into {len(compacted)} turns ({tokens} estimated tokens, budget {budget})."
+    )
 
     # 3. Model Capabilities & Vision Tests
     print("\n[3] Model Capabilities & Vision Tests:")
@@ -60,8 +62,7 @@ def run_tests():
     assert hermes_caps["vision"] is False, "Hermes should be text-only"
     assert hermes_caps["tools"] is True, "Hermes should have tool capability"
     vision_warn = model_capabilities.validate_attachments_for_model(
-        "hermes3",
-        [{"filename": "screenshot.png", "mime_type": "image/png"}]
+        "hermes3", [{"filename": "screenshot.png", "mime_type": "image/png"}]
     )
     assert vision_warn is not None, "Vision warning should trigger on text-only model"
     print("  [PASS] Model capability detection & vision safety guards verified.")
@@ -70,7 +71,7 @@ def run_tests():
     print("\n[4] Artifact Generation & Extraction Tests:")
     sample_text = (
         "Here is the generated script:\n"
-        "<artifact name=\"fib.py\" type=\"code\" language=\"python\">\n"
+        '<artifact name="fib.py" type="code" language="python">\n'
         "def fib(n):\n"
         "    return n if n <= 1 else fib(n-1) + fib(n-2)\n"
         "</artifact>\n"

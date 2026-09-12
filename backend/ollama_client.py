@@ -5,13 +5,12 @@ never blocks the event loop.
 """
 
 import os
-from typing import Optional
 
 import httpx
 
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 
-_client: Optional[httpx.AsyncClient] = None
+_client: httpx.AsyncClient | None = None
 
 
 def get_ollama_client() -> httpx.AsyncClient:

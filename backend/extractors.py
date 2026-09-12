@@ -10,23 +10,53 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional, Tuple
 
 log = logging.getLogger("studio.extractors")
 
 TEXT_EXTS = {
-    ".txt", ".md", ".mdx", ".rst", ".py", ".js", ".ts", ".tsx", ".jsx",
-    ".html", ".htm", ".css", ".json", ".csv", ".xml", ".yaml", ".yml",
-    ".sql", ".sh", ".bash", ".rb", ".go", ".rs", ".java", ".c", ".cpp",
-    ".h", ".hpp", ".swift", ".kt", ".php", ".ini", ".toml", ".conf",
-    ".log", ".env",
+    ".txt",
+    ".md",
+    ".mdx",
+    ".rst",
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".html",
+    ".htm",
+    ".css",
+    ".json",
+    ".csv",
+    ".xml",
+    ".yaml",
+    ".yml",
+    ".sql",
+    ".sh",
+    ".bash",
+    ".rb",
+    ".go",
+    ".rs",
+    ".java",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".swift",
+    ".kt",
+    ".php",
+    ".ini",
+    ".toml",
+    ".conf",
+    ".log",
+    ".env",
 }
 PDF_EXTS = {".pdf"}
 
 
-def _read_text_file(path: str, max_chars: Optional[int] = None) -> str:
+def _read_text_file(path: str, max_chars: int | None = None) -> str:
     try:
-        with open(path, "r", encoding="utf-8", errors="ignore") as fh:
+        with open(path, encoding="utf-8", errors="ignore") as fh:
             return fh.read(max_chars) if max_chars else fh.read()
     except Exception as e:
         log.warning("read_text_file failed: %s", e)
@@ -59,7 +89,7 @@ def _read_pdf(path: str, max_pages: int = 500) -> str:
         return ""
 
 
-def extract_text_from_file(path: str, mime_type: str = "") -> Tuple[str, str]:
+def extract_text_from_file(path: str, mime_type: str = "") -> tuple[str, str]:
     """Return (extracted_text, kind) where kind is one of: text|pdf|binary."""
     ext = os.path.splitext(path)[1].lower()
     if ext in PDF_EXTS or mime_type == "application/pdf":
@@ -69,19 +99,24 @@ def extract_text_from_file(path: str, mime_type: str = "") -> Tuple[str, str]:
     return "", "binary"
 
 
-def fetch_url_as_text(url: str, timeout: float = 15.0) -> Tuple[str, str]:
+def fetch_url_as_text(url: str, timeout: float = 15.0) -> tuple[str, str]:
     """Fetch a web page and return (clean_text, page_title). Uses trafilatura
     for main-content extraction (strips nav/ads/footers)."""
     import httpx
+
     try:
         import trafilatura
     except Exception as e:
         raise RuntimeError(f"trafilatura not available: {e}") from e
 
-    with httpx.Client(timeout=timeout, follow_redirects=True, headers={
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/128.0 Safari/537.36",
-    }) as client:
+    with httpx.Client(
+        timeout=timeout,
+        follow_redirects=True,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/128.0 Safari/537.36",
+        },
+    ) as client:
         resp = client.get(url)
         resp.raise_for_status()
         html = resp.text

@@ -11,20 +11,20 @@ Runs only when RAG actually returned chunks. Silent no-op otherwise.
 from __future__ import annotations
 
 import re
-from typing import List, Dict, Any
+from typing import Any
 
 import numpy as np
 
-from backend.rag import _embed_batch, _current_model, _cosine
+from backend.rag import _cosine, _current_model, _embed_batch
 
-DEFAULT_THRESHOLD = 0.55        # cosine below this = unsupported
-MIN_SENTENCE_CHARS = 20         # ignore trivial fragments
+DEFAULT_THRESHOLD = 0.55  # cosine below this = unsupported
+MIN_SENTENCE_CHARS = 20  # ignore trivial fragments
 
 
 _SENT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9])")
 
 
-def split_sentences(text: str) -> List[str]:
+def split_sentences(text: str) -> list[str]:
     text = re.sub(r"\s+", " ", text or "").strip()
     if not text:
         return []
@@ -34,9 +34,9 @@ def split_sentences(text: str) -> List[str]:
 
 async def check(
     response_text: str,
-    chunk_texts: List[str],
+    chunk_texts: list[str],
     threshold: float = DEFAULT_THRESHOLD,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return per-sentence support + summary counts. Empty result if RAG
     wasn't used or the response has no substantive sentences."""
     if not chunk_texts:
@@ -58,17 +58,19 @@ async def check(
     chunk_mat = np.stack(chunk_vecs)
     results = []
     supported = 0
-    for sent, svec in zip(sentences, sent_vecs):
+    for sent, svec in zip(sentences, sent_vecs, strict=True):
         sims = _cosine(chunk_mat, svec)
         best = float(np.max(sims))
         is_supported = best >= threshold
         if is_supported:
             supported += 1
-        results.append({
-            "sentence": sent[:200],
-            "max_similarity": round(best, 3),
-            "supported": is_supported,
-        })
+        results.append(
+            {
+                "sentence": sent[:200],
+                "max_similarity": round(best, 3),
+                "supported": is_supported,
+            }
+        )
     total = len(results)
     return {
         "status": "success",

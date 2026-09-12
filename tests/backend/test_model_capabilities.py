@@ -66,10 +66,13 @@ class TestValidateAttachmentsForModel:
         assert warning is None
 
     def test_non_image_attachment_never_warns(self) -> None:
-        assert mc.validate_attachments_for_model(
-            "qwen2.5:32b",
-            [{"filename": "readme.md", "mime_type": "text/markdown"}],
-        ) is None
+        assert (
+            mc.validate_attachments_for_model(
+                "qwen2.5:32b",
+                [{"filename": "readme.md", "mime_type": "text/markdown"}],
+            )
+            is None
+        )
 
     def test_detection_by_filename_extension(self) -> None:
         # Missing mime_type — should still detect image via extension

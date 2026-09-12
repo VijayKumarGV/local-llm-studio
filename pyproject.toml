@@ -67,3 +67,7 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
+"tests/backend/legacy/*" = ["E402", "F401", "F841"]
+# FastAPI's `= File(...)` / `= Form(...)` / `= Depends(...)` pattern is idiomatic;
+# B008 is a false positive here.
+"backend/server.py" = ["B008"]

@@ -24,11 +24,13 @@ def client(fresh_schema: str, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         r = AsyncMock()
         r.raise_for_status = lambda: None
         if url == "/api/tags":
-            r.json = lambda: {"models": [
-                {"name": "qwen2.5:32b"},
-                {"name": "llama3.2:1b"},
-                {"name": "nomic-embed-text:latest"},
-            ]}
+            r.json = lambda: {
+                "models": [
+                    {"name": "qwen2.5:32b"},
+                    {"name": "llama3.2:1b"},
+                    {"name": "nomic-embed-text:latest"},
+                ]
+            }
         else:
             r.json = lambda: {}
         return r
@@ -37,11 +39,13 @@ def client(fresh_schema: str, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr("backend.ollama_client.get_ollama_client", lambda: fake)
 
     from backend.server import app
+
     with TestClient(app) as c:
         yield c
 
 
 # ─── health + models ─────────────────────────────────────────────────────
+
 
 def test_health_ok(client: TestClient) -> None:
     r = client.get("/api/health")
@@ -65,6 +69,7 @@ def test_models_list(client: TestClient) -> None:
 
 
 # ─── projects CRUD ───────────────────────────────────────────────────────
+
 
 def test_project_create_list_get(client: TestClient) -> None:
     r = client.post("/api/projects", json={"name": "TestProj", "icon": "🛠️"})
@@ -101,6 +106,7 @@ def test_project_get_missing_404(client: TestClient) -> None:
 
 
 # ─── conversations CRUD ───────────────────────────────────────────────────
+
 
 def test_conversation_lifecycle(client: TestClient) -> None:
     pid = client.post("/api/projects", json={"name": "P"}).json()["project"]["id"]
@@ -140,6 +146,7 @@ def test_conversation_duplicate(client: TestClient) -> None:
 
 def test_conversation_branch(client: TestClient) -> None:
     from backend import database
+
     pid = client.post("/api/projects", json={"name": "P"}).json()["project"]["id"]
     cid = client.post("/api/conversations", json={"project_id": pid}).json()["conversation"]["id"]
     # Seed 3 messages so we have a branch point
@@ -165,8 +172,10 @@ def test_branch_requires_message_id(client: TestClient) -> None:
 
 # ─── messages ────────────────────────────────────────────────────────────
 
+
 def test_message_delete(client: TestClient) -> None:
     from backend import database
+
     pid = client.post("/api/projects", json={"name": "P"}).json()["project"]["id"]
     cid = client.post("/api/conversations", json={"project_id": pid}).json()["conversation"]["id"]
     m = database.add_message(cid, "user", "hi")
@@ -175,6 +184,7 @@ def test_message_delete(client: TestClient) -> None:
 
 
 # ─── settings ────────────────────────────────────────────────────────────
+
 
 def test_settings_get_defaults(client: TestClient) -> None:
     r = client.get("/api/settings")
@@ -193,10 +203,14 @@ def test_settings_save_and_readback(client: TestClient) -> None:
 
 # ─── search ──────────────────────────────────────────────────────────────
 
+
 def test_search_across_content(client: TestClient) -> None:
     from backend import database
+
     pid = client.post("/api/projects", json={"name": "Searchable"}).json()["project"]["id"]
-    cid = client.post("/api/conversations", json={"project_id": pid, "title": "Findable chat"}).json()["conversation"]["id"]
+    cid = client.post("/api/conversations", json={"project_id": pid, "title": "Findable chat"}).json()["conversation"][
+        "id"
+    ]
     database.add_message(cid, "assistant", "This is a unique needle_xyz phrase we can find.")
 
     r = client.get("/api/search?q=needle_xyz")
@@ -215,8 +229,10 @@ def test_search_empty_query(client: TestClient) -> None:
 
 # ─── feedback endpoint ──────────────────────────────────────────────────
 
+
 def test_feedback_endpoint_roundtrip(client: TestClient) -> None:
     from backend import database
+
     pid = client.post("/api/projects", json={"name": "P"}).json()["project"]["id"]
     cid = client.post("/api/conversations", json={"project_id": pid}).json()["conversation"]["id"]
     m = database.add_message(cid, "assistant", "hi")
@@ -241,6 +257,7 @@ def test_feedback_summary(client: TestClient) -> None:
 
 # ─── memory endpoints ──────────────────────────────────────────────────
 
+
 def test_memory_list_empty(client: TestClient) -> None:
     r = client.get("/api/memory")
     assert r.status_code == 200
@@ -254,6 +271,7 @@ def test_memory_extract_requires_conversation_id(client: TestClient) -> None:
 
 # ─── artifacts endpoint ────────────────────────────────────────────────
 
+
 def test_artifacts_list_empty(client: TestClient) -> None:
     r = client.get("/api/artifacts")
     assert r.status_code == 200
@@ -266,6 +284,7 @@ def test_artifact_get_missing_404(client: TestClient) -> None:
 
 
 # ─── sandbox endpoint ──────────────────────────────────────────────────
+
 
 def test_sandbox_run_hello_world(client: TestClient) -> None:
     r = client.post("/api/sandbox/run", json={"code": "print('hello')"})
@@ -290,6 +309,7 @@ def test_sandbox_timeout_enforced(client: TestClient) -> None:
 
 
 # ─── static / SPA root ─────────────────────────────────────────────────
+
 
 def test_index_html_served(client: TestClient) -> None:
     r = client.get("/")

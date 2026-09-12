@@ -7,15 +7,14 @@ tagged `integration` because they spawn processes.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
 
 from backend import security
 
-
 # ─── path sanitization ─────────────────────────────────────────────────
+
 
 class TestSanitizeAndResolvePath:
     def test_valid_workspace_file(self) -> None:
@@ -48,6 +47,7 @@ class TestSanitizeAndResolvePath:
 
 
 # ─── sandboxed python ───────────────────────────────────────────────────
+
 
 @pytest.mark.integration
 class TestRunSandboxedPython:
@@ -106,6 +106,7 @@ class TestRunSandboxedPython:
 
 # ─── permission matrix ────────────────────────────────────────────────
 
+
 class TestCheckToolPermission:
     def test_defaults_from_matrix(self) -> None:
         assert security.check_tool_permission("search_web", {}) == "auto_allow"
@@ -114,10 +115,13 @@ class TestCheckToolPermission:
         assert security.check_tool_permission("execute_python_code", {}) == "require_approval"
 
     def test_user_override_wins(self) -> None:
-        assert security.check_tool_permission(
-            "execute_python_code",
-            {"perm_execute_python_code": "auto_allow"},
-        ) == "auto_allow"
+        assert (
+            security.check_tool_permission(
+                "execute_python_code",
+                {"perm_execute_python_code": "auto_allow"},
+            )
+            == "auto_allow"
+        )
 
     def test_unknown_tool_requires_approval(self) -> None:
         # Fail-safe: unknown tool → require approval, not auto-allow

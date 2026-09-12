@@ -4,11 +4,13 @@ Handles token estimation, dynamic context compaction, sliding window management,
 and conversation summarization to prevent context overflow.
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import Any
+
 from backend.model_capabilities import get_model_capabilities
 
 try:
     import tiktoken
+
     _ENC = tiktoken.get_encoding("cl100k_base")
 except Exception:
     _ENC = None
@@ -28,7 +30,7 @@ def estimate_tokens(text: str) -> int:
     return max(1, int(len(text) / 3.8))
 
 
-def estimate_messages_tokens(messages: List[Dict[str, str]]) -> int:
+def estimate_messages_tokens(messages: list[dict[str, str]]) -> int:
     total = 0
     for m in messages:
         total += estimate_tokens(m.get("content", "")) + 4  # +4 for role/formatting overhead
@@ -39,10 +41,10 @@ def prepare_compacted_context(
     model_name: str,
     system_prompt: str,
     project_instructions: str,
-    conversation_history: List[Dict[str, Any]],
+    conversation_history: list[dict[str, Any]],
     current_user_message: str,
-    file_attachments_context: str = ""
-) -> List[Dict[str, str]]:
+    file_attachments_context: str = "",
+) -> list[dict[str, str]]:
     """
     Constructs a token-budgeted prompt payload.
     Guarantees the prompt never overflows the model's context window.
@@ -68,7 +70,9 @@ def prepare_compacted_context(
         if estimate_tokens(file_attachments_context) > max_att_tokens:
             # Truncate to ~max_att_tokens * 3.8 characters
             char_limit = int(max_att_tokens * 3.8)
-            file_attachments_context = file_attachments_context[:char_limit] + "\n[File attachment context truncated to fit context budget]"
+            file_attachments_context = (
+                file_attachments_context[:char_limit] + "\n[File attachment context truncated to fit context budget]"
+            )
         final_user_content += f"\n\n{file_attachments_context}"
 
     user_tokens = estimate_tokens(final_user_content) + 10
@@ -76,13 +80,12 @@ def prepare_compacted_context(
     remaining_budget = max_prompt_budget - system_tokens - user_tokens - 200
 
     # 3. Fit Conversation History (Sliding Window & Compaction)
-    assembled_history: List[Dict[str, str]] = []
-    compacted_summary: List[str] = []
+    compacted_summary: list[str] = []
 
     # Iterate from newest to oldest messages
     reversed_history = list(reversed(conversation_history))
     accumulated_tokens = 0
-    recent_turns: List[Dict[str, str]] = []
+    recent_turns: list[dict[str, str]] = []
 
     for msg in reversed_history:
         content = msg.get("content", "")
@@ -101,7 +104,7 @@ def prepare_compacted_context(
     recent_turns.reverse()
 
     # If any older turns were compacted, inject an informative summary block
-    final_messages: List[Dict[str, str]] = []
+    final_messages: list[dict[str, str]] = []
     final_messages.append({"role": "system", "content": combined_system})
 
     if compacted_summary:

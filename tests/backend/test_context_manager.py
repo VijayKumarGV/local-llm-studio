@@ -67,10 +67,7 @@ class TestPrepareCompactedContext:
         assert not any("[Context Compaction" in m["content"] for m in result)
 
     def test_long_conversation_triggers_compaction_on_small_model(self) -> None:
-        history = [
-            {"role": "user", "content": f"Turn {i}: " + ("data " * 200)}
-            for i in range(45)
-        ]
+        history = [{"role": "user", "content": f"Turn {i}: " + ("data " * 200)} for i in range(45)]
         result = cm.prepare_compacted_context(
             model_name="moondream",  # 2048 ctx forces compaction
             system_prompt="Base System",

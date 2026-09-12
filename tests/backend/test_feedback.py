@@ -17,7 +17,9 @@ def seeded_message(fresh_schema: str) -> str:
     proj = database.create_project(name="P")
     conv = database.create_conversation(title="C", project_id=proj["id"])
     msg = database.add_message(
-        conversation_id=conv["id"], role="assistant", content="hi from ai",
+        conversation_id=conv["id"],
+        role="assistant",
+        content="hi from ai",
     )
     return msg["id"]
 

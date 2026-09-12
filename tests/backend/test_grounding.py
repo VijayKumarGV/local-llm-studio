@@ -48,7 +48,8 @@ class TestCheck:
 
     @pytest.mark.asyncio
     async def test_supported_sentences_pass(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         # Fake embed: each text embeds to a deterministic 4-dim vector based
         # on whether it mentions "quantum" — so query & chunk about quantum
@@ -56,10 +57,14 @@ class TestCheck:
         async def _fake_embed(texts, model, batch_size=32):
             out = []
             for t in texts:
-                v = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32) if "quantum" in t.lower() \
+                v = (
+                    np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+                    if "quantum" in t.lower()
                     else np.array([0.0, 1.0, 0.0, 0.0], dtype=np.float32)
+                )
                 out.append(v)
             return out
+
         monkeypatch.setattr("backend.grounding._embed_batch", _fake_embed)
 
         response = (
@@ -74,7 +79,6 @@ class TestCheck:
         assert r["status"] == "success"
         assert r["total"] == 2
         # The quantum sentence is supported, the pasta one is not
-        by_sent = {s["sentence"][:20]: s for s in r["sentences"]}
         supported = [s for s in r["sentences"] if s["supported"]]
         assert len(supported) == 1
         assert "quantum" in supported[0]["sentence"].lower()
@@ -84,16 +88,17 @@ class TestCheck:
 
     @pytest.mark.asyncio
     async def test_all_supported_gives_full_coverage(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         # Every embed returns the same vector → cosine = 1 → every sentence supported.
         async def _fake_embed(texts, model, batch_size=32):
             return [np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32) for _ in texts]
+
         monkeypatch.setattr("backend.grounding._embed_batch", _fake_embed)
 
         response = (
-            "The first sentence is grounded in the docs. "
-            "The second one also matches something in the source material."
+            "The first sentence is grounded in the docs. The second one also matches something in the source material."
         )
         r = await grounding.check(response, ["chunk text here that has enough content"], threshold=0.5)
         assert r["status"] == "success"
@@ -101,10 +106,12 @@ class TestCheck:
 
     @pytest.mark.asyncio
     async def test_embed_failure_returns_error(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         async def _boom(texts, model, batch_size=32):
             raise RuntimeError("ollama unreachable")
+
         monkeypatch.setattr("backend.grounding._embed_batch", _boom)
 
         r = await grounding.check(
@@ -116,16 +123,21 @@ class TestCheck:
 
     @pytest.mark.asyncio
     async def test_threshold_controls_supported_count(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         # Fixed similarity = 0.6
         async def _fake_embed(texts, model, batch_size=32):
             vecs = []
             for i, _ in enumerate(texts):
-                v = np.array([1.0, 0.6, 0.0, 0.0], dtype=np.float32) if i % 2 == 0 \
+                v = (
+                    np.array([1.0, 0.6, 0.0, 0.0], dtype=np.float32)
+                    if i % 2 == 0
                     else np.array([0.6, 1.0, 0.0, 0.0], dtype=np.float32)
+                )
                 vecs.append(v)
             return vecs
+
         monkeypatch.setattr("backend.grounding._embed_batch", _fake_embed)
 
         response = "The first sentence right here in the text is nicely long enough."

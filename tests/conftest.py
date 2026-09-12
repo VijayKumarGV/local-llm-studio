@@ -7,9 +7,10 @@ canned responses so tests don't require a running model.
 
 from __future__ import annotations
 
+import contextlib
 import os
-import sys
 import sqlite3
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -25,6 +26,7 @@ if str(ROOT) not in sys.path:
 
 # ─── DB isolation ──────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def temp_db(monkeypatch: pytest.MonkeyPatch) -> str:
     """Point every backend module at a throwaway SQLite file for this test."""
@@ -32,21 +34,17 @@ def temp_db(monkeypatch: pytest.MonkeyPatch) -> str:
     os.close(fd)
     monkeypatch.setattr("backend.database.DB_PATH", path)
     yield path
-    try:
+    with contextlib.suppress(FileNotFoundError):
         os.unlink(path)
-    except FileNotFoundError:
-        pass
     for suffix in ("-wal", "-shm", "-journal"):
-        try:
+        with contextlib.suppress(FileNotFoundError):
             os.unlink(path + suffix)
-        except FileNotFoundError:
-            pass
 
 
 @pytest.fixture
 def fresh_schema(temp_db: str) -> str:
     """Initialize every schema against the isolated DB. Returns the path."""
-    from backend import database, rag, long_term_memory, session_notes, feedback, artifacts, citations
+    from backend import artifacts, citations, database, feedback, long_term_memory, rag, session_notes
 
     database.init_db()
     rag.ensure_schema()
@@ -62,6 +60,7 @@ def fresh_schema(temp_db: str) -> str:
 
 # ─── Ollama mocking ────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def fake_ollama(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     """Patch the shared Ollama httpx.AsyncClient with a mock. Tests set
@@ -72,6 +71,7 @@ def fake_ollama(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
 
 
 # ─── Small utilities ───────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def fixtures_dir() -> Path:

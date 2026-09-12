@@ -17,13 +17,13 @@ Silently no-ops if the embedding model isn't pulled — features degrade
 gracefully instead of failing loud.
 """
 
+import json
 import os
 import re
-import json
-import uuid
 import sqlite3
+import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any
 
 import httpx
 import numpy as np
@@ -32,14 +32,14 @@ from backend import database
 from backend.ollama_client import get_ollama_client
 
 DEFAULT_EMBED_MODEL = "nomic-embed-text"
-DEFAULT_HYDE_MODEL = "llama3.2:1b"        # fast; only writes a short hypothetical answer
+DEFAULT_HYDE_MODEL = "llama3.2:1b"  # fast; only writes a short hypothetical answer
 DEFAULT_RERANK_MODEL = "dolphin3:latest"  # 8B — good instruction following, fast enough for rerank
 CHUNK_TARGET_CHARS = 3200
 CHUNK_OVERLAP_CHARS = 400
 MAX_CHUNKS_PER_FILE = 200
-RRF_K = 60          # reciprocal-rank-fusion constant; 60 is the classic value
-MMR_LAMBDA = 0.5    # 0 = pure diversity, 1 = pure relevance
-RERANK_POOL = 20    # how many top candidates the LLM reranker considers
+RRF_K = 60  # reciprocal-rank-fusion constant; 60 is the classic value
+MMR_LAMBDA = 0.5  # 0 = pure diversity, 1 = pure relevance
+RERANK_POOL = 20  # how many top candidates the LLM reranker considers
 HYDE_TIMEOUT_S = 15
 RERANK_TIMEOUT_S = 20
 
@@ -47,6 +47,7 @@ RERANK_TIMEOUT_S = 20
 # ==========================================
 # SCHEMA
 # ==========================================
+
 
 def ensure_schema() -> None:
     with database.get_connection() as conn:
@@ -121,7 +122,7 @@ def ensure_schema() -> None:
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
 
 
-def _extract_headings(text: str) -> List[Tuple[int, str]]:
+def _extract_headings(text: str) -> list[tuple[int, str]]:
     """Return list of (char_offset, heading_title) for markdown headings."""
     out = []
     for m in _HEADING_RE.finditer(text):
@@ -129,7 +130,7 @@ def _extract_headings(text: str) -> List[Tuple[int, str]]:
     return out
 
 
-def _heading_at(headings: List[Tuple[int, str]], offset: int) -> str:
+def _heading_at(headings: list[tuple[int, str]], offset: int) -> str:
     """Return the most recent heading at or before `offset`, or ''."""
     last = ""
     for off, title in headings:
@@ -140,9 +141,9 @@ def _heading_at(headings: List[Tuple[int, str]], offset: int) -> str:
     return last
 
 
-def _hard_split(text: str, headings: List[Tuple[int, str]], base_offset: int) -> List[Dict[str, Any]]:
+def _hard_split(text: str, headings: list[tuple[int, str]], base_offset: int) -> list[dict[str, Any]]:
     """Blindly split `text` into CHUNK_TARGET_CHARS-sized pieces with overlap."""
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     step = max(CHUNK_TARGET_CHARS - CHUNK_OVERLAP_CHARS, 1)
     for i in range(0, len(text), step):
         piece = text[i : i + CHUNK_TARGET_CHARS]
@@ -153,7 +154,7 @@ def _hard_split(text: str, headings: List[Tuple[int, str]], base_offset: int) ->
     return out
 
 
-def _chunk_with_headings(text: str, filename: str) -> List[Dict[str, Any]]:
+def _chunk_with_headings(text: str, filename: str) -> list[dict[str, Any]]:
     """Chunk text and annotate each chunk with the enclosing markdown heading.
 
     Two-stage strategy:
@@ -167,7 +168,7 @@ def _chunk_with_headings(text: str, filename: str) -> List[Dict[str, Any]]:
         return []
     headings = _extract_headings(text)
     paragraphs = re.split(r"\n\s*\n", text)
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     buf = ""
     buf_offset = 0
     cursor = 0
@@ -213,10 +214,7 @@ def _annotate(chunk_text: str, filename: str, heading: str) -> str:
     """Prepend `[filename › heading]` to chunk text — improves both semantic
     retrieval (embedding sees the context) and BM25 (filename/heading tokens
     are searchable)."""
-    if heading:
-        prefix = f"[{filename} › {heading}]"
-    else:
-        prefix = f"[{filename}]"
+    prefix = f"[{filename} › {heading}]" if heading else f"[{filename}]"
     if chunk_text.startswith(prefix):
         return chunk_text
     return f"{prefix}\n\n{chunk_text}"
@@ -226,10 +224,11 @@ def _annotate(chunk_text: str, filename: str, heading: str) -> str:
 # EMBEDDINGS
 # ==========================================
 
-async def _embed_batch(texts: List[str], model: str, batch_size: int = 32) -> List[np.ndarray]:
+
+async def _embed_batch(texts: list[str], model: str, batch_size: int = 32) -> list[np.ndarray]:
     """Batch embed via Ollama's newer /api/embed endpoint (falls back to per-item)."""
     client = get_ollama_client()
-    out: List[np.ndarray] = []
+    out: list[np.ndarray] = []
     for i in range(0, len(texts), batch_size):
         chunk = texts[i : i + batch_size]
         try:
@@ -256,7 +255,7 @@ async def _embed_batch(texts: List[str], model: str, batch_size: int = 32) -> Li
                 r.raise_for_status()
                 vec = np.asarray(r.json().get("embedding") or [], dtype=np.float32)
                 if vec.size == 0:
-                    raise RuntimeError(f"Empty embedding for model {model!r}")
+                    raise RuntimeError(f"Empty embedding for model {model!r}") from None
                 out.append(vec)
     return out
 
@@ -327,7 +326,7 @@ _RERANK_SYSTEM = (
 )
 
 
-async def _llm_rerank(query: str, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+async def _llm_rerank(query: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Ask a fast model to score relevance; sort by score. Returns re-ordered
     candidates. On any failure, returns candidates unchanged."""
     if len(candidates) <= 1:
@@ -362,7 +361,7 @@ async def _llm_rerank(query: str, candidates: List[Dict[str, Any]]) -> List[Dict
         data = json.loads(raw) if raw.strip().startswith("{") else {}
         scores = data.get("scores") or []
         # Build id -> score map (1-indexed as we sent it)
-        score_by_id: Dict[int, float] = {}
+        score_by_id: dict[int, float] = {}
         for s in scores:
             try:
                 score_by_id[int(s["id"])] = float(s["score"])
@@ -383,28 +382,27 @@ async def _llm_rerank(query: str, candidates: List[Dict[str, Any]]) -> List[Dict
 # MMR — Maximal Marginal Relevance
 # ==========================================
 
+
 def _mmr(
-    candidates: List[Dict[str, Any]],
-    embeddings: Dict[str, np.ndarray],
+    candidates: list[dict[str, Any]],
+    embeddings: dict[str, np.ndarray],
     query_vec: np.ndarray,
     top_k: int,
     lam: float = MMR_LAMBDA,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Iteratively pick the candidate maximizing:
         lam * relevance(q, d) - (1-lam) * max_similarity(d, already_picked)
     so top_k spans diverse chunks instead of concentrating in one file."""
     if len(candidates) <= top_k:
         return candidates
     remaining = list(candidates)
-    picked: List[Dict[str, Any]] = []
-    q_norm = query_vec / (np.linalg.norm(query_vec) + 1e-9)
+    picked: list[dict[str, Any]] = []
 
     def _sim(a: np.ndarray, b: np.ndarray) -> float:
         return float((a @ b) / ((np.linalg.norm(a) * np.linalg.norm(b)) + 1e-9))
 
     # Precompute query similarity for every candidate
-    rel = {c["id"]: _sim(embeddings[c["id"]], query_vec) if c["id"] in embeddings else 0.0
-           for c in remaining}
+    rel = {c["id"]: _sim(embeddings[c["id"]], query_vec) if c["id"] in embeddings else 0.0 for c in remaining}
 
     while remaining and len(picked) < top_k:
         best = None
@@ -412,10 +410,7 @@ def _mmr(
         for c in remaining:
             r = rel.get(c["id"], 0.0)
             if picked and c["id"] in embeddings:
-                max_sim = max(
-                    _sim(embeddings[c["id"]], embeddings[p["id"]])
-                    for p in picked if p["id"] in embeddings
-                )
+                max_sim = max(_sim(embeddings[c["id"]], embeddings[p["id"]]) for p in picked if p["id"] in embeddings)
             else:
                 max_sim = 0.0
             score = lam * r - (1 - lam) * max_sim
@@ -431,7 +426,8 @@ def _mmr(
 # INGEST
 # ==========================================
 
-async def ingest_file(file_id: str, text: Optional[str] = None, force: bool = False) -> Dict[str, Any]:
+
+async def ingest_file(file_id: str, text: str | None = None, force: bool = False) -> dict[str, Any]:
     """Chunk + embed a file with header-aware annotation. Skips if already
     indexed under the current embedding model (unless force=True)."""
     ensure_schema()
@@ -463,10 +459,11 @@ async def ingest_file(file_id: str, text: Optional[str] = None, force: bool = Fa
             # For PDFs, re-extract from the raw file.
             if fp.lower().endswith(".pdf"):
                 from backend import extractors
+
                 body, _ = extractors.extract_text_from_file(fp, "application/pdf")
             else:
                 try:
-                    with open(fp, "r", encoding="utf-8", errors="ignore") as fh:
+                    with open(fp, encoding="utf-8", errors="ignore") as fh:
                         body = fh.read()
                 except Exception:
                     body = ""
@@ -495,7 +492,7 @@ async def ingest_file(file_id: str, text: Optional[str] = None, force: bool = Fa
     now = datetime.now().isoformat()
     with database.get_connection() as conn:
         conn.execute("DELETE FROM file_chunks WHERE file_id = ?", (file_id,))
-        for i, (ann_text, vec) in enumerate(zip(annotated, vectors)):
+        for i, (ann_text, vec) in enumerate(zip(annotated, vectors, strict=True)):
             conn.execute(
                 "INSERT INTO file_chunks (id, file_id, conversation_id, project_id, chunk_index, text, embedding, embedding_model, dim, created_at) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -520,6 +517,7 @@ async def ingest_file(file_id: str, text: Optional[str] = None, force: bool = Fa
 # RETRIEVAL — HYBRID (VECTOR + BM25) VIA RRF
 # ==========================================
 
+
 def _cosine(mat: np.ndarray, q: np.ndarray) -> np.ndarray:
     denom = (np.linalg.norm(mat, axis=1) * np.linalg.norm(q)) + 1e-9
     return (mat @ q) / denom
@@ -534,14 +532,14 @@ def _fts_query(raw: str) -> str:
 
 async def retrieve(
     query: str,
-    conversation_id: Optional[str] = None,
-    project_id: Optional[str] = None,
+    conversation_id: str | None = None,
+    project_id: str | None = None,
     top_k: int = 6,
     candidates_per_source: int = 30,
-    use_hyde: Optional[bool] = None,
-    use_reranker: Optional[bool] = None,
-    use_mmr: Optional[bool] = None,
-) -> List[Dict[str, Any]]:
+    use_hyde: bool | None = None,
+    use_reranker: bool | None = None,
+    use_mmr: bool | None = None,
+) -> list[dict[str, Any]]:
     """Hybrid retrieval with three quality upgrades:
         1. HyDE: expand the query with a hypothetical answer before embedding.
         2. Hybrid RRF: fuse vector top-N and BM25 top-N.
@@ -572,8 +570,8 @@ async def retrieve(
     if use_hyde:
         embed_query = await _hyde_expand(query)
 
-    scope_where: List[str] = []
-    scope_params: List[Any] = []
+    scope_where: list[str] = []
+    scope_params: list[Any] = []
     if cross_ws:
         # No scope filter — search everywhere. Still constrained by embedding IS NOT NULL below.
         scope_where.append("1=1")
@@ -588,8 +586,8 @@ async def retrieve(
         scope_params.append(project_id)
 
     # --- 1. Vector candidates ---
-    vector_rank: Dict[str, int] = {}
-    vector_scores: Dict[str, float] = {}
+    vector_rank: dict[str, int] = {}
+    vector_scores: dict[str, float] = {}
     with database.get_connection() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -599,10 +597,10 @@ async def retrieve(
             scope_params,
         )
         rows = cur.fetchall()
-    row_by_id: Dict[str, sqlite3.Row] = {r["id"]: r for r in rows}
+    row_by_id: dict[str, sqlite3.Row] = {r["id"]: r for r in rows}
 
-    embeddings_by_id: Dict[str, np.ndarray] = {}
-    qvec: Optional[np.ndarray] = None
+    embeddings_by_id: dict[str, np.ndarray] = {}
+    qvec: np.ndarray | None = None
     if rows:
         dim = rows[0]["dim"]
         rows = [r for r in rows if r["dim"] == dim]
@@ -622,10 +620,10 @@ async def retrieve(
                 embeddings_by_id[cid] = mat[idx]
 
     # --- 2. BM25 (FTS5) candidates ---
-    bm25_rank: Dict[str, int] = {}
-    bm25_scores: Dict[str, float] = {}
-    fts_where: List[str] = ["file_chunks_fts MATCH ?"]
-    fts_params: List[Any] = [_fts_query(query)]
+    bm25_rank: dict[str, int] = {}
+    bm25_scores: dict[str, float] = {}
+    fts_where: list[str] = ["file_chunks_fts MATCH ?"]
+    fts_params: list[Any] = [_fts_query(query)]
     if cross_ws:
         pass  # no scope
     elif conversation_id and project_id:
@@ -643,8 +641,7 @@ async def retrieve(
         with database.get_connection() as conn:
             cur = conn.cursor()
             cur.execute(
-                f"SELECT chunk_id, rank FROM file_chunks_fts "
-                f"WHERE {' AND '.join(fts_where)} ORDER BY rank LIMIT ?",
+                f"SELECT chunk_id, rank FROM file_chunks_fts WHERE {' AND '.join(fts_where)} ORDER BY rank LIMIT ?",
                 fts_params,
             )
             for rank, row in enumerate(cur.fetchall()):
@@ -656,7 +653,7 @@ async def retrieve(
         pass
 
     # --- 3. Reciprocal-Rank Fusion ---
-    fused: Dict[str, float] = {}
+    fused: dict[str, float] = {}
     for cid, r in vector_rank.items():
         fused[cid] = fused.get(cid, 0.0) + 1.0 / (RRF_K + r)
     for cid, r in bm25_rank.items():
@@ -681,22 +678,24 @@ async def retrieve(
             for r in cur.fetchall():
                 row_by_id[r["id"]] = r
 
-    pool: List[Dict[str, Any]] = []
+    pool: list[dict[str, Any]] = []
     for cid, fused_score in ranked:
         r = row_by_id.get(cid)
         if not r:
             continue
-        pool.append({
-            "id": cid,
-            "file_id": r["file_id"],
-            "chunk_index": int(r["chunk_index"]),
-            "text": r["text"],
-            "filename": r["filename"],
-            "score": round(fused_score, 6),
-            "vector_score": round(vector_scores.get(cid, 0.0), 4),
-            "bm25_rank": bm25_rank.get(cid),
-            "vector_rank": vector_rank.get(cid),
-        })
+        pool.append(
+            {
+                "id": cid,
+                "file_id": r["file_id"],
+                "chunk_index": int(r["chunk_index"]),
+                "text": r["text"],
+                "filename": r["filename"],
+                "score": round(fused_score, 6),
+                "vector_score": round(vector_scores.get(cid, 0.0), 4),
+                "bm25_rank": bm25_rank.get(cid),
+                "vector_rank": vector_rank.get(cid),
+            }
+        )
 
     # LLM rerank the fused pool
     if use_reranker and len(pool) > 1:

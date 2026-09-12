@@ -12,8 +12,9 @@ from backend import extractors
 @pytest.fixture
 def pdf_three_pages(tmp_path: Path) -> Path:
     """Generate a real 3-page PDF via reportlab at test time."""
-    reportlab = pytest.importorskip("reportlab.pdfgen.canvas")
+    pytest.importorskip("reportlab.pdfgen.canvas")
     from reportlab.pdfgen.canvas import Canvas
+
     p = tmp_path / "three.pdf"
     c = Canvas(str(p))
     for i in range(1, 4):
@@ -30,12 +31,14 @@ def pdf_empty(tmp_path: Path) -> Path:
     """A PDF with a blank page — no extractable text (simulates image-only)."""
     pytest.importorskip("reportlab.pdfgen.canvas")
     from reportlab.pdfgen.canvas import Canvas
+
     p = tmp_path / "empty.pdf"
     Canvas(str(p)).save()  # no pages, no text
     return p
 
 
 # ─── extract_text_from_file ───────────────────────────────────────────
+
 
 class TestExtractTextFromFile:
     def test_text_file(self, fixtures_dir: Path) -> None:
@@ -77,6 +80,7 @@ class TestExtractTextFromFile:
         # File without .pdf extension but explicit mime type
         pytest.importorskip("reportlab.pdfgen.canvas")
         from reportlab.pdfgen.canvas import Canvas
+
         p = tmp_path / "no_ext_pdf"
         Canvas(str(p)).save()
         text, kind = extractors.extract_text_from_file(str(p), mime_type="application/pdf")
@@ -88,6 +92,7 @@ class TestExtractTextFromFile:
 
 
 # ─── fetch_url_as_text: mocked httpx client ───────────────────────────
+
 
 class TestFetchUrlAsText:
     def test_returns_title_and_body(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -104,13 +109,22 @@ class TestFetchUrlAsText:
 
         class FakeResp:
             text = html
-            def raise_for_status(self): pass
+
+            def raise_for_status(self):
+                pass
 
         class FakeClient:
-            def __init__(self, *a, **kw): pass
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
-            def get(self, url): return FakeResp()
+            def __init__(self, *a, **kw):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
+            def get(self, url):
+                return FakeResp()
 
         monkeypatch.setattr(httpx, "Client", FakeClient)
         text, title = extractors.fetch_url_as_text("https://example.com/article")
@@ -123,13 +137,22 @@ class TestFetchUrlAsText:
 
         class FakeResp:
             text = "<html><head><title>My Page Title</title></head><body><p>content here has to be reasonably long so that trafilatura actually returns something for it.</p></body></html>"
-            def raise_for_status(self): pass
+
+            def raise_for_status(self):
+                pass
 
         class FakeClient:
-            def __init__(self, *a, **kw): pass
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
-            def get(self, url): return FakeResp()
+            def __init__(self, *a, **kw):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
+            def get(self, url):
+                return FakeResp()
 
         monkeypatch.setattr(httpx, "Client", FakeClient)
         _, title = extractors.fetch_url_as_text("https://x.example.com")
