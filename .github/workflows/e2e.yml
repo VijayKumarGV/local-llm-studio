@@ -1,0 +1,46 @@
+name: E2E (Playwright)
+
+# Kept separate from the unit-test CI so a browser flake never blocks
+# a release. Runs on merge to main and on demand.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install runtime + test deps
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
+          .venv/bin/pip install pytest pytest-asyncio pytest-cov pytest-httpx pytest-playwright ruff mypy reportlab
+
+      - name: Install Chromium
+        run: |
+          .venv/bin/playwright install chromium --with-deps
+
+      - name: Run e2e smoke
+        run: .venv/bin/pytest tests/e2e/ --no-cov -p no:cacheprovider
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          if-no-files-found: ignore
