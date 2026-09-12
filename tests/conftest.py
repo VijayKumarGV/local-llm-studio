@@ -70,6 +70,28 @@ def fake_ollama(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     return client
 
 
+# ─── Sandbox availability gate ─────────────────────────────────────────────────
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "requires_sandbox: needs a functional Docker or sandbox-exec backend "
+        "(auto-skipped on hosts where neither works)",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    from backend import security
+
+    if security._sandbox_kind() != "unavailable":
+        return
+    skip = pytest.mark.skip(reason="no functional sandbox backend (Docker + sandbox-exec both unavailable)")
+    for item in items:
+        if "requires_sandbox" in item.keywords:
+            item.add_marker(skip)
+
+
 # ─── Small utilities ───────────────────────────────────────────────────────────
 
 

@@ -56,6 +56,12 @@ _MACOS_SANDBOX_PROFILE = """
 SANDBOX_EXEC = shutil.which("sandbox-exec")
 _ON_MACOS = platform.system() == "Darwin"
 
+# Cached result of `sandbox-exec` functional preflight. On some macOS
+# hardening states the binary exists but `sandbox_apply` returns
+# "Operation not permitted" — treat that as unavailable rather than
+# reporting every user command as an error.
+_SANDBOX_EXEC_WORKS: bool | None = None
+
 
 class SecurityException(Exception):
     pass
@@ -123,12 +129,39 @@ def _docker_available() -> bool:
         return False
 
 
+def _sandbox_exec_works() -> bool:
+    """Preflight sandbox-exec with a trivial profile. Cached per-process.
+
+    macOS may have `/usr/bin/sandbox-exec` present but refuse the syscall
+    (SIP + hardening on newer OS releases return exit 71 with
+    'sandbox_apply: Operation not permitted'). Detect that once and cache
+    so `_sandbox_kind` can degrade to `unavailable` cleanly.
+    """
+    global _SANDBOX_EXEC_WORKS
+    if _SANDBOX_EXEC_WORKS is not None:
+        return _SANDBOX_EXEC_WORKS
+    if not (_ON_MACOS and SANDBOX_EXEC):
+        _SANDBOX_EXEC_WORKS = False
+        return False
+    try:
+        r = subprocess.run(
+            [SANDBOX_EXEC, "-p", "(version 1)(allow default)", "/usr/bin/true"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        _SANDBOX_EXEC_WORKS = r.returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        _SANDBOX_EXEC_WORKS = False
+    return _SANDBOX_EXEC_WORKS
+
+
 def _sandbox_kind() -> str:
     """Return the sandbox backend that will be used: 'docker' | 'sandbox-exec'
     | 'unsandboxed'. Callers can log this for auditability."""
     if _docker_available():
         return "docker"
-    if _ON_MACOS and SANDBOX_EXEC:
+    if _sandbox_exec_works():
         return "sandbox-exec"
     # Re-read from env, not CONFIG, so tests that monkeypatch env work without
     # having to call config.reload().

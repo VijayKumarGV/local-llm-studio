@@ -6,6 +6,8 @@ Tests security sandbox, context compaction, model capabilities, artifacts, and b
 import os
 import sys
 
+import pytest
+
 # Ensure parent directory is in python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -95,6 +97,7 @@ def run_tests():
     print("==================================================")
 
 
+@pytest.mark.requires_sandbox
 def test_all():
     """pytest entry point — runs the whole tier-2 suite as one test."""
     run_tests()

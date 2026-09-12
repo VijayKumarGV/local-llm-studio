@@ -51,6 +51,7 @@ class TestSanitizeAndResolvePath:
 
 
 @pytest.mark.integration
+@pytest.mark.requires_sandbox
 class TestRunSandboxedPython:
     def test_hello_world(self) -> None:
         r = security.run_sandboxed_python("print(2 + 2)")
@@ -117,28 +118,24 @@ class TestSandboxBackendSelection:
 
     def test_selects_sandbox_exec_when_no_docker(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(security, "_docker_available", lambda: False)
-        monkeypatch.setattr(security, "_ON_MACOS", True)
-        monkeypatch.setattr(security, "SANDBOX_EXEC", "/usr/bin/sandbox-exec")
+        monkeypatch.setattr(security, "_sandbox_exec_works", lambda: True)
         assert security._sandbox_kind() == "sandbox-exec"
 
     def test_unavailable_when_nothing_present(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(security, "_docker_available", lambda: False)
-        monkeypatch.setattr(security, "_ON_MACOS", False)
-        monkeypatch.setattr(security, "SANDBOX_EXEC", None)
+        monkeypatch.setattr(security, "_sandbox_exec_works", lambda: False)
         monkeypatch.delenv("STUDIO_ALLOW_UNSANDBOXED", raising=False)
         assert security._sandbox_kind() == "unavailable"
 
     def test_unsandboxed_opt_in_recognized(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(security, "_docker_available", lambda: False)
-        monkeypatch.setattr(security, "_ON_MACOS", False)
-        monkeypatch.setattr(security, "SANDBOX_EXEC", None)
+        monkeypatch.setattr(security, "_sandbox_exec_works", lambda: False)
         monkeypatch.setenv("STUDIO_ALLOW_UNSANDBOXED", "1")
         assert security._sandbox_kind() == "unsandboxed"
 
     def test_returns_helpful_error_when_no_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(security, "_docker_available", lambda: False)
-        monkeypatch.setattr(security, "_ON_MACOS", False)
-        monkeypatch.setattr(security, "SANDBOX_EXEC", None)
+        monkeypatch.setattr(security, "_sandbox_exec_works", lambda: False)
         monkeypatch.delenv("STUDIO_ALLOW_UNSANDBOXED", raising=False)
         r = security.run_sandboxed_python("print(1)")
         assert r["status"] == "error"

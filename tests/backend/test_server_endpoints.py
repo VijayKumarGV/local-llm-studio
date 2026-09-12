@@ -298,6 +298,7 @@ def test_artifact_get_missing_404(client: TestClient) -> None:
 # ─── sandbox endpoint ──────────────────────────────────────────────────
 
 
+@pytest.mark.requires_sandbox
 def test_sandbox_run_hello_world(client: TestClient) -> None:
     r = client.post("/api/sandbox/run", json={"code": "print('hello')"})
     assert r.status_code == 200
@@ -311,6 +312,7 @@ def test_sandbox_run_requires_code(client: TestClient) -> None:
     assert r.status_code == 400
 
 
+@pytest.mark.requires_sandbox
 def test_sandbox_timeout_enforced(client: TestClient) -> None:
     r = client.post(
         "/api/sandbox/run",
