@@ -7,6 +7,8 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
+TEST_TOKEN = "test-mw-token"
+
 
 @pytest.fixture
 def client(fresh_schema: str, monkeypatch: pytest.MonkeyPatch) -> TestClient:
@@ -22,10 +24,17 @@ def client(fresh_schema: str, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     fake.get = _get
     monkeypatch.setattr("backend.ollama_client.get_ollama_client", lambda: fake)
+    monkeypatch.setattr("backend.server.get_ollama_client", lambda: fake)
+    monkeypatch.setenv("SESSION_TOKEN", TEST_TOKEN)
+    from backend import auth as auth_module
+
+    auth_module.reset_token_cache()
 
     from backend.server import app
 
-    with TestClient(app) as c:
+    # /api/health is public — no token required — but keep header available
+    # for tests that later hit protected paths.
+    with TestClient(app, headers={"Authorization": f"Bearer {TEST_TOKEN}"}) as c:
         yield c
 
 

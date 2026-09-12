@@ -329,9 +329,7 @@ class AgentOrchestrator:
             for att in attachments:
                 mime = (att.get("mime_type") or "").lower()
                 fn = (att.get("filename") or "").lower()
-                is_img = mime.startswith("image/") or fn.endswith(
-                    (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
-                )
+                is_img = mime.startswith("image/") or fn.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"))
                 if not is_img or not att.get("id"):
                     continue
                 rec = database.get_file(att["id"])

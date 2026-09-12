@@ -5,6 +5,7 @@ model capability detection, and workspace backup/restore.
 """
 
 import asyncio
+import hmac
 import logging
 import os
 import shutil
@@ -30,6 +31,7 @@ from backend import (
     session_notes,
 )
 from backend.agent_orchestrator import AgentOrchestrator
+from backend.auth import COOKIE_NAME, auth_middleware, load_or_create_token
 from backend.middleware import RequestIdFilter, request_context_middleware
 from backend.migrations import apply_migrations
 from backend.ollama_client import close_ollama_client, get_ollama_client
@@ -65,7 +67,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Local LLM Studio API — M4 Pro Edition", version="0.2.0", lifespan=lifespan)
 
+# Order matters — request-id first so auth failures still carry a trace ID.
 app.middleware("http")(request_context_middleware)
+app.middleware("http")(auth_middleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -668,11 +672,32 @@ def _asset_hash() -> str:
 
 
 @app.get("/")
-def serve_index():
+def serve_index() -> Response:
     with open(os.path.join(STATIC_DIR, "index.html"), encoding="utf-8") as fh:
         html = fh.read()
     html = html.replace("__ASSET_HASH__", _asset_hash())
     return Response(content=html, media_type="text/html")
+
+
+@app.get("/auth")
+def bootstrap_auth(token: str) -> Response:
+    """One-shot browser bootstrap: sets the session cookie and redirects to /.
+    Any mismatch → 401 with a hint."""
+    expected = load_or_create_token()
+    if not hmac.compare_digest(token, expected):
+        return JSONResponse({"error": "invalid token"}, status_code=401)
+    resp = Response(status_code=302, headers={"Location": "/"})
+    # httponly=False so the SPA's fetch() can still read it if needed for
+    # explicit Authorization header (not required — cookie alone works).
+    resp.set_cookie(
+        COOKIE_NAME,
+        token,
+        httponly=True,
+        samesite="strict",
+        max_age=60 * 60 * 24 * 365,  # 1 year
+        secure=False,  # local http; flip to True behind TLS
+    )
+    return resp
 
 
 if __name__ == "__main__":

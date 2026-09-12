@@ -13,6 +13,8 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
+TEST_TOKEN = "test-token-abc-123"
+
 
 @pytest.fixture
 def client(fresh_schema: str, monkeypatch: pytest.MonkeyPatch) -> TestClient:
@@ -36,11 +38,21 @@ def client(fresh_schema: str, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         return r
 
     fake.get = _get
+    # server.py binds `get_ollama_client` at import time — patching the
+    # source module isn't enough, we also need the local reference.
     monkeypatch.setattr("backend.ollama_client.get_ollama_client", lambda: fake)
+    monkeypatch.setattr("backend.server.get_ollama_client", lambda: fake)
+
+    # Auth: fix the token to a known value and reset the module cache so
+    # load_or_create_token sees the env var.
+    monkeypatch.setenv("SESSION_TOKEN", TEST_TOKEN)
+    from backend import auth as auth_module
+
+    auth_module.reset_token_cache()
 
     from backend.server import app
 
-    with TestClient(app) as c:
+    with TestClient(app, headers={"Authorization": f"Bearer {TEST_TOKEN}"}) as c:
         yield c
 
 

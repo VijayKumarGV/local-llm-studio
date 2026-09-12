@@ -46,6 +46,7 @@ class ChunkMeta(TypedDict):
 
 # ─── tool results ──────────────────────────────────────────────────────
 
+
 class ToolResult(TypedDict, total=False):
     """Return shape shared by every agent tool. Fields are `total=False`
     because tools produce different subsets (e.g. sandbox has stdout,
@@ -78,6 +79,7 @@ class SandboxResult(TypedDict, total=False):
 
 
 # ─── grounding / feedback / memory ────────────────────────────────────
+
 
 class SentenceSupport(TypedDict):
     sentence: str
@@ -117,6 +119,7 @@ class FeedbackRecord(TypedDict):
 
 # ─── chat message shape (Ollama's /api/chat) ───────────────────────────
 
+
 class OllamaMessage(TypedDict, total=False):
     """A single message in the payload sent to Ollama /api/chat.
 
@@ -125,6 +128,6 @@ class OllamaMessage(TypedDict, total=False):
 
     role: Literal["system", "user", "assistant", "tool"]
     content: str
-    name: str            # tool result messages
+    name: str  # tool result messages
     tool_calls: list[dict[str, Any]]
-    images: list[str]    # base64 image data for vision models
+    images: list[str]  # base64 image data for vision models
