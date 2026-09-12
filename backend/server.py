@@ -412,7 +412,11 @@ async def upload_file(
 ):
     try:
         fid = str(uuid.uuid4())
-        save_filename = f"{fid}_{file.filename}"
+        # Sanitize filename: strip any directory components + drop weird chars
+        # so a malicious client can't smuggle '../../etc/foo' or a null byte.
+        raw_name = file.filename or f"{fid}.bin"
+        safe_name = os.path.basename(raw_name).replace("\0", "").strip() or f"{fid}.bin"
+        save_filename = f"{fid}_{safe_name}"
         save_path = os.path.join(UPLOAD_DIR, save_filename)
 
         with open(save_path, "wb") as buffer:
@@ -426,7 +430,7 @@ async def upload_file(
         extracted_preview = full_text[:4000]
 
         record = database.add_file(
-            filename=file.filename or f"{fid}.bin",
+            filename=safe_name,
             filepath=save_path,
             mime_type=mime_type,
             size_bytes=size_bytes,
