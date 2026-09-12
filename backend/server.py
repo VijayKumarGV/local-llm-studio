@@ -30,14 +30,17 @@ from backend import (
     session_notes,
 )
 from backend.agent_orchestrator import AgentOrchestrator
+from backend.middleware import RequestIdFilter, request_context_middleware
 from backend.migrations import apply_migrations
 from backend.ollama_client import close_ollama_client, get_ollama_client
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO"),
-    format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+    format="%(asctime)s %(levelname)-7s [%(request_id)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
+# Attach request-id filter to the ROOT logger so every child logger inherits.
+logging.getLogger().addFilter(RequestIdFilter())
 log = logging.getLogger("studio")
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
@@ -60,7 +63,9 @@ async def lifespan(app: FastAPI):
     await close_ollama_client()
 
 
-app = FastAPI(title="Local LLM Studio API — M4 Pro Edition", version="3.0.0", lifespan=lifespan)
+app = FastAPI(title="Local LLM Studio API — M4 Pro Edition", version="0.2.0", lifespan=lifespan)
+
+app.middleware("http")(request_context_middleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -68,6 +73,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
 
 orchestrator = AgentOrchestrator()
