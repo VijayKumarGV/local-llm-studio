@@ -8,6 +8,7 @@ tagged `integration` because they spawn processes.
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -102,6 +103,98 @@ class TestRunSandboxedPython:
         # itself was killed by the sandbox → stderr contains the block signal.
         combined = (r.get("stdout", "") + r.get("stderr", "")).lower()
         assert "denied" in combined or "network" in combined or "unreachable" in combined
+
+
+# ─── sandbox backend selection ─────────────────────────────────────────
+
+
+class TestSandboxBackendSelection:
+    """Verify the layered fallback: docker → sandbox-exec → unsandboxed."""
+
+    def test_selects_docker_when_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(security, "_docker_available", lambda: True)
+        assert security._sandbox_kind() == "docker"
+
+    def test_selects_sandbox_exec_when_no_docker(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(security, "_docker_available", lambda: False)
+        monkeypatch.setattr(security, "_ON_MACOS", True)
+        monkeypatch.setattr(security, "SANDBOX_EXEC", "/usr/bin/sandbox-exec")
+        assert security._sandbox_kind() == "sandbox-exec"
+
+    def test_unavailable_when_nothing_present(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(security, "_docker_available", lambda: False)
+        monkeypatch.setattr(security, "_ON_MACOS", False)
+        monkeypatch.setattr(security, "SANDBOX_EXEC", None)
+        monkeypatch.delenv("STUDIO_ALLOW_UNSANDBOXED", raising=False)
+        assert security._sandbox_kind() == "unavailable"
+
+    def test_unsandboxed_opt_in_recognized(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(security, "_docker_available", lambda: False)
+        monkeypatch.setattr(security, "_ON_MACOS", False)
+        monkeypatch.setattr(security, "SANDBOX_EXEC", None)
+        monkeypatch.setenv("STUDIO_ALLOW_UNSANDBOXED", "1")
+        assert security._sandbox_kind() == "unsandboxed"
+
+    def test_returns_helpful_error_when_no_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(security, "_docker_available", lambda: False)
+        monkeypatch.setattr(security, "_ON_MACOS", False)
+        monkeypatch.setattr(security, "SANDBOX_EXEC", None)
+        monkeypatch.delenv("STUDIO_ALLOW_UNSANDBOXED", raising=False)
+        r = security.run_sandboxed_python("print(1)")
+        assert r["status"] == "error"
+        assert "no sandbox backend" in r["error"].lower()
+        assert r["sandboxed"] is False
+
+
+class TestDockerAvailability:
+    def test_returns_false_when_docker_binary_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("shutil.which", lambda name: None if name == "docker" else "/usr/bin/other")
+        assert security._docker_available() is False
+
+    def test_returns_false_when_docker_daemon_down(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("shutil.which", lambda name: "/usr/local/bin/docker")
+
+        def _fail_run(cmd, capture_output, text, timeout):
+            return MagicMock(returncode=1, stdout="", stderr="Cannot connect to daemon")
+
+        monkeypatch.setattr("subprocess.run", _fail_run)
+        assert security._docker_available() is False
+
+
+class TestDockerSandboxDispatch:
+    """The docker command isn't invoked (docker not installed here); we
+    assert on the argv shape via a mocked Popen."""
+
+    def test_docker_cmd_shape(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(security, "_docker_available", lambda: True)
+        captured: dict[str, list[str]] = {}
+
+        class FakeProc:
+            returncode = 0
+
+            def communicate(self, timeout: int) -> tuple[str, str]:
+                return ("42", "")
+
+        def fake_popen(cmd: list[str], **kwargs: object) -> FakeProc:
+            captured["cmd"] = cmd
+            return FakeProc()
+
+        monkeypatch.setattr(security.subprocess, "Popen", fake_popen)
+        r = security.run_sandboxed_python("print(6*7)")
+
+        assert r["status"] == "success"
+        assert r["stdout"] == "42"
+        assert r["sandbox_kind"] == "docker"
+        cmd = captured["cmd"]
+        assert cmd[0] == "docker"
+        for flag in (
+            "--network=none",
+            "--read-only",
+            "--memory=256m",
+            "--cap-drop=ALL",
+            "--security-opt=no-new-privileges",
+        ):
+            assert flag in cmd, f"missing {flag}"
 
 
 # ─── permission matrix ────────────────────────────────────────────────
