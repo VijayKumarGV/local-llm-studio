@@ -23,6 +23,7 @@ from slowapi.errors import RateLimitExceeded
 
 from backend import (
     artifacts,
+    audit_log,
     backup,
     database,
     extractors,
@@ -62,6 +63,7 @@ async def lifespan(app: FastAPI):
     long_term_memory.ensure_schema()
     session_notes.ensure_schema()
     feedback.ensure_schema()
+    audit_log.ensure_schema()
     applied = apply_migrations(database.DB_PATH)
     if applied:
         log.info("applied %d migration(s)", applied)
@@ -174,7 +176,15 @@ def memory_list(project_id: str | None = None, limit: int = 100):
 @app.delete("/api/memory/{memory_id}")
 def memory_delete(memory_id: str):
     long_term_memory.delete_memory(memory_id)
+    audit_log.record("delete", resource_type="memory", resource_id=memory_id)
     return {"status": "success"}
+
+
+@app.get("/api/audit")
+def audit_list(limit: int = 100, action: str | None = None, resource_type: str | None = None):
+    """Read-only view of the append-only audit trail. Latest first."""
+    entries = audit_log.list_recent(limit=limit, action=action, resource_type=resource_type)
+    return {"status": "success", "count": len(entries), "entries": entries}
 
 
 @app.get("/api/rag/query")
@@ -280,6 +290,7 @@ def update_project(project_id: str, data: ProjectUpdate):
 @app.delete("/api/projects/{project_id}")
 def delete_project(project_id: str):
     database.delete_project(project_id)
+    audit_log.record("delete", resource_type="project", resource_id=project_id)
     return {"status": "success"}
 
 
@@ -324,6 +335,7 @@ def update_conversation(conv_id: str, data: ConversationUpdate):
 @app.delete("/api/conversations/{conv_id}")
 def delete_conversation(conv_id: str):
     database.delete_conversation(conv_id)
+    audit_log.record("delete", resource_type="conversation", resource_id=conv_id)
     return {"status": "success"}
 
 
@@ -350,6 +362,7 @@ async def branch_conversation_endpoint(conv_id: str, req: Request):
 @app.delete("/api/messages/{message_id}")
 def delete_message(message_id: str):
     database.delete_message(message_id)
+    audit_log.record("delete", resource_type="message", resource_id=message_id)
     return {"status": "success"}
 
 
@@ -420,6 +433,19 @@ async def upload_file(
             conversation_id=conversation_id,
             project_id=project_id,
             extracted_text=extracted_preview,
+        )
+        audit_log.record(
+            "file_upload",
+            resource_type="file",
+            resource_id=record["id"],
+            details={
+                "filename": record["filename"],
+                "mime_type": mime_type,
+                "size_bytes": size_bytes,
+                "kind": kind,
+                "conversation_id": conversation_id,
+                "project_id": project_id,
+            },
         )
 
         rag_result: dict[str, Any] = {"status": "skipped", "reason": "no extractable text"}
@@ -525,6 +551,17 @@ async def sandbox_run(request: Request):
     from backend import security
 
     result = security.run_sandboxed_python(code, timeout_seconds=timeout_s)
+    audit_log.record(
+        "sandbox_run",
+        resource_type="sandbox",
+        details={
+            "code_chars": len(code),
+            "timeout_s": timeout_s,
+            "sandbox_kind": result.get("sandbox_kind"),
+            "status": result.get("status"),
+            "return_code": result.get("return_code"),
+        },
+    )
     return result
 
 
