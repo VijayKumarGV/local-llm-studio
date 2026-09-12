@@ -1,0 +1,56 @@
+# Keep the build context small so `docker build` is fast + reproducible.
+
+# Virtualenv + local Python state
+.venv/
+venv/
+env/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Local runtime data (rebuilt inside the container / bind-mounted at run time)
+backend/workspace.db
+backend/workspace.db-*
+backend/uploads/
+backend/artifacts/
+corpus/
+
+# Test-only fixtures / generated artifacts
+tests/fixtures/*.pdf
+tests/fixtures/*.jpg
+.playwright-mcp/
+verify_*.png
+ui_*.png
+studio-loaded.png
+Screenshot*.png
+
+# Version control + tooling
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+
+# Docs / plan / package metadata not needed inside the image
+Plan/
+Prompts/
+docs/
+*.md
+!README.md
+MODEL_REFERENCE_AND_UPGRADES.md
+Modelfile.*
+sample_dataset.jsonl
+*.log
+
+# OS cruft
+.DS_Store
+Thumbs.db
