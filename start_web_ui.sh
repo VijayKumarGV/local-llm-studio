@@ -2,13 +2,19 @@
 set -e
 cd "$(dirname "$0")"
 
-# Prefer the Homebrew Python 3.14 on Apple Silicon
-PYTHON="${PYTHON:-/opt/homebrew/bin/python3}"
-if ! [ -x "$PYTHON" ]; then
-  PYTHON="$(command -v python3 || true)"
+# Prefer Homebrew Python 3.12 (widely supported by ML/PDF/HTTP wheels).
+# You can override with PYTHON=/path/to/python3.
+PYTHON="${PYTHON:-}"
+if [ -z "$PYTHON" ]; then
+  for cand in /opt/homebrew/bin/python3.12 /usr/local/bin/python3.12 /opt/homebrew/bin/python3.13; do
+    [ -x "$cand" ] && PYTHON="$cand" && break
+  done
+fi
+if [ -z "$PYTHON" ] || ! [ -x "$PYTHON" ]; then
+  PYTHON="$(command -v python3.12 || command -v python3 || true)"
 fi
 if ! [ -x "$PYTHON" ]; then
-  echo "[-] python3 not found. Install via: brew install python"
+  echo "[-] python3.12 not found. Install via: brew install python@3.12"
   exit 1
 fi
 
@@ -19,8 +25,10 @@ echo "[start_web_ui] Python $PY_VER at $PYTHON"
 VENV=".venv"
 REQS="requirements.txt"
 NEED_INSTALL=0
-if ! "$VENV/bin/python" -c "import sys; assert sys.version_info >= (3,11)" 2>/dev/null; then
+# Require ≥3.12 and <3.14 to match pyproject constraints.
+if ! "$VENV/bin/python" -c "import sys; assert (3,12) <= sys.version_info < (3,14)" 2>/dev/null; then
   echo "[start_web_ui] Creating fresh venv with $PYTHON..."
+  rm -rf "$VENV"
   "$PYTHON" -m venv "$VENV"
   "$VENV/bin/pip" install --upgrade pip --quiet
   NEED_INSTALL=1

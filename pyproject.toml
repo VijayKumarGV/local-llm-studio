@@ -2,7 +2,7 @@
 name = "local-llm-studio"
 version = "0.1.0"
 description = "Local FastAPI + SPA workspace for on-device Ollama models (Apple M4 Pro edition)"
-requires-python = ">=3.11"
+requires-python = ">=3.12,<3.14"
 readme = "README.md"
 
 dependencies = [
@@ -59,7 +59,7 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
