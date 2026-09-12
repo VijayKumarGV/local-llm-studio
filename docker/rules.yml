@@ -1,0 +1,59 @@
+# Prometheus alert rules for Local LLM Studio.
+#
+# Fires visible in Prometheus UI (Alerts tab) and Grafana (Alerting →
+# Alert rules). Wire an Alertmanager container to route them to Slack /
+# email / macOS notification — see docker/README.md for the setup.
+
+groups:
+  - name: studio.reliability
+    interval: 30s
+    rules:
+      - alert: StudioHighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(http_requests_total[5m])), 1e-9)
+          ) > 0.05
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Studio 5xx rate > 5% for 5m"
+          description: "Investigate server.log and check ollama connectivity."
+
+      - alert: StudioHighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 30
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Studio p95 latency > 30s for 5m"
+          description: "Model likely overloaded — check active_streams gauge and ollama's CPU/RAM."
+
+      - alert: StudioOllamaDown
+        expr: studio_ollama_up == 0
+        for: 90s
+        labels: {severity: critical}
+        annotations:
+          summary: "Studio can't reach Ollama"
+          description: "/api/health has reported ollama_up=0 for >90s. Restart the ollama container."
+
+  - name: studio.quality
+    interval: 60s
+    rules:
+      - alert: StudioNegativeFeedbackSpike
+        expr: |
+          (
+            sum(increase(studio_feedback_total{rating="down"}[30m]))
+            /
+            clamp_min(sum(increase(studio_feedback_total{rating=~"up|down"}[30m])), 1e-9)
+          ) > 0.40
+          and
+          sum(increase(studio_feedback_total{rating=~"up|down"}[30m])) >= 20
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Studio negative feedback share > 40% (over ≥20 ratings)"
+          description: "Users are downvoting a lot. Check recent chats + run the feedback digest (make feedback-digest)."

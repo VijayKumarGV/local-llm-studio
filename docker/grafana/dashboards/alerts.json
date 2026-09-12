@@ -1,0 +1,32 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["studio", "alerts"],
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Studio · Alerts",
+  "uid": "studio-alerts",
+  "panels": [
+    {
+      "type": "table",
+      "title": "Current alert state",
+      "description": "Rows show every rule Prometheus knows about; alertstate=firing / pending / inactive.",
+      "targets": [{"expr": "ALERTS", "instant": true, "format": "table", "refId": "A"}],
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    },
+    {
+      "type": "timeseries",
+      "title": "Firing alerts over time (count)",
+      "targets": [{"expr": "sum(ALERTS{alertstate=\"firing\"})", "refId": "A", "legendFormat": "firing"}],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 10},
+      "id": 2,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    }
+  ]
+}

@@ -6,7 +6,7 @@ SHELL := /usr/bin/env bash
 .PHONY: help run stop restart logs shell dev test lint format typecheck audit \
         cov build image compose-up compose-down compose-logs backup migrate \
         first-run bundle sign notarize dmg release-artifacts evals evals-security evals-coding \
-        feedback-digest
+        feedback-digest obs-up obs-down obs-logs
 
 help:  ## Show this help.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -82,6 +82,18 @@ evals: evals-security evals-coding  ## Run both expert eval sets in sequence.
 
 feedback-digest:  ## Weekly rollup of thumbs-down feedback → evals/digests/.
 	.venv/bin/python scripts/feedback_digest.py
+
+# ── Observability stack (Prometheus + Grafana + Tempo) ────────────────
+OBS_COMPOSE := docker compose -f docker/observability-compose.yml --project-directory docker
+
+obs-up:         ## Start Prometheus + Grafana + Tempo (http://localhost:3000).
+	$(OBS_COMPOSE) up -d
+
+obs-down:       ## Stop the observability stack (volumes persist).
+	$(OBS_COMPOSE) down
+
+obs-logs:       ## Tail observability stack logs.
+	$(OBS_COMPOSE) logs -f
 
 # ── macOS .app packaging ───────────────────────────────────────────────
 # Requires:  pip install -r desktop/requirements.txt

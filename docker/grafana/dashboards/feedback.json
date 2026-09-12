@@ -1,0 +1,61 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["studio", "feedback"],
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Studio · Feedback",
+  "uid": "studio-feedback",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "👍 today",
+      "targets": [{"expr": "increase(studio_feedback_total{rating=\"up\"}[24h])", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    },
+    {
+      "type": "stat",
+      "title": "👎 today",
+      "targets": [{"expr": "increase(studio_feedback_total{rating=\"down\"}[24h])", "refId": "A"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "orange", "value": 3}, {"color": "red", "value": 10}]}}},
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    },
+    {
+      "type": "stat",
+      "title": "👎 share of ratings (24h)",
+      "targets": [{"expr": "sum(increase(studio_feedback_total{rating=\"down\"}[24h])) / clamp_min(sum(increase(studio_feedback_total{rating=~\"up|down\"}[24h])), 1e-9)", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "orange", "value": 0.2}, {"color": "red", "value": 0.4}]}}},
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    },
+    {
+      "type": "stat",
+      "title": "Feedback coverage (24h)",
+      "description": "Share of chat successes that got any 👍 / 👎.",
+      "targets": [{"expr": "sum(increase(studio_feedback_total{rating=~\"up|down\"}[24h])) / clamp_min(sum(increase(studio_chat_requests_total{status=\"success\"}[24h])), 1e-9)", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}},
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    },
+    {
+      "type": "timeseries",
+      "title": "Feedback events over time",
+      "targets": [
+        {"expr": "sum by (rating) (rate(studio_feedback_total[10m]))", "legendFormat": "{{rating}}", "refId": "A"}
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6},
+      "id": 5,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    }
+  ]
+}

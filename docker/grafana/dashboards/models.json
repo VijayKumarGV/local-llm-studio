@@ -1,0 +1,57 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["studio", "models"],
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Studio · Models & Tokens",
+  "uid": "studio-models",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Chat requests by model (1m rate)",
+      "targets": [{"expr": "sum by (model) (rate(studio_chat_requests_total[1m]))", "legendFormat": "{{model}}", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    },
+    {
+      "type": "timeseries",
+      "title": "Prompt tokens per second (by model)",
+      "targets": [{"expr": "sum by (model) (rate(studio_tokens_total{kind=\"prompt\"}[5m]))", "legendFormat": "{{model}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "short"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    },
+    {
+      "type": "timeseries",
+      "title": "Completion tokens per second (by model)",
+      "targets": [{"expr": "sum by (model) (rate(studio_tokens_total{kind=\"completion\"}[5m]))", "legendFormat": "{{model}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "short"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    },
+    {
+      "type": "table",
+      "title": "Total tokens by model (last 24h)",
+      "targets": [{"expr": "sum by (model, kind) (increase(studio_tokens_total[24h]))", "instant": true, "format": "table", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    },
+    {
+      "type": "timeseries",
+      "title": "Tool calls (by tool + status)",
+      "targets": [{"expr": "sum by (tool, status) (rate(studio_tool_calls_total[5m]))", "legendFormat": "{{tool}} · {{status}}", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+      "id": 5,
+      "datasource": {"type": "prometheus", "uid": "Prometheus"}
+    }
+  ]
+}

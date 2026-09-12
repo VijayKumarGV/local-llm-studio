@@ -1,0 +1,69 @@
+# Local observability stack for Local LLM Studio.
+#
+# Runs alongside the main studio stack (not merged into docker-compose.yml
+# so the average user isn't forced to run Grafana just to chat).
+#
+# Usage:
+#   make obs-up      # start prometheus + grafana + tempo
+#   make obs-down    # stop
+#   open http://localhost:3000   # grafana (admin/admin, prompted to change)
+#
+# Prometheus scrapes the studio at host.docker.internal:8080/metrics.
+# Studio must therefore be running (docker compose up -d) or `make dev`
+# with BIND_HOST=0.0.0.0.
+#
+# Tempo receives OTLP traces on :4318. Point the studio at it:
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 make dev
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    container_name: studio-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./rules.yml:/etc/prometheus/rules.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: studio-tempo
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./tempo.yml:/etc/tempo.yml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "127.0.0.1:4318:4318"   # OTLP-HTTP
+      - "127.0.0.1:3200:3200"   # tempo HTTP query API (grafana talks here)
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    container_name: studio-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_INSTALL_PLUGINS: ""
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+      - tempo
+
+volumes:
+  prometheus_data:
+    name: studio_prometheus_data
+  tempo_data:
+    name: studio_tempo_data
+  grafana_data:
+    name: studio_grafana_data
