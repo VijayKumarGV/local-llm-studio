@@ -38,8 +38,10 @@ def _list_installed_models_sync() -> list[str]:
     """Synchronous best-effort installed-model list. Empty on any failure."""
     import urllib.request
 
+    from backend.config import CONFIG as _cfg
+
     try:
-        req = urllib.request.Request(f"{os.environ.get('OLLAMA_HOST', 'http://127.0.0.1:11434')}/api/tags")
+        req = urllib.request.Request(f"{_cfg.ollama_host}/api/tags")
         with urllib.request.urlopen(req, timeout=2) as resp:
             data = json.loads(resp.read().decode())
             return [m.get("name", "") for m in data.get("models", [])]

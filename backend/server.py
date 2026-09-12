@@ -35,6 +35,7 @@ from backend import (
 )
 from backend.agent_orchestrator import AgentOrchestrator
 from backend.auth import COOKIE_NAME, auth_middleware, load_or_create_token
+from backend.config import CONFIG
 from backend.middleware import RequestIdFilter, request_context_middleware
 from backend.migrations import apply_migrations
 from backend.ollama_client import close_ollama_client, get_ollama_client
@@ -42,7 +43,7 @@ from backend.rate_limit import LIMIT_CHAT_STREAM, LIMIT_COMPARE, LIMIT_SANDBOX, 
 from backend.security_headers import security_headers_middleware
 
 logging.basicConfig(
-    level=os.environ.get("LOG_LEVEL", "INFO"),
+    level=CONFIG.log_level,
     format="%(asctime)s %(levelname)-7s [%(request_id)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
@@ -766,4 +767,4 @@ def bootstrap_auth(token: str) -> Response:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("backend.server:app", host="127.0.0.1", port=8080, reload=False)
+    uvicorn.run("backend.server:app", host=CONFIG.bind_host, port=CONFIG.bind_port, reload=False)

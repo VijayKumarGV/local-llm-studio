@@ -21,7 +21,6 @@ from __future__ import annotations
 import contextlib
 import hmac
 import logging
-import os
 import secrets
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -29,10 +28,10 @@ from pathlib import Path
 from fastapi import Request
 from starlette.responses import JSONResponse, Response
 
+from backend.config import CONFIG
+
 log = logging.getLogger("studio.auth")
 
-# Path is env-overridable for test isolation.
-DEFAULT_TOKEN_FILE = Path.home() / "Library/Application Support/LocalLLMStudio/token"
 COOKIE_NAME = "studio_token"
 
 _UNAUTHED_PREFIXES = ("/api/health", "/auth", "/static", "/favicon")
@@ -42,9 +41,14 @@ _TOKEN: str | None = None
 
 
 def _token_file() -> Path:
-    """Where to persist the auto-generated token. Overridable via env for tests."""
-    override = os.environ.get("STUDIO_TOKEN_FILE")
-    return Path(override) if override else DEFAULT_TOKEN_FILE
+    """Where to persist the auto-generated token. Env override wins over
+    the CONFIG default so tests can monkey-patch env without a reload."""
+    import os as _os
+
+    override = _os.environ.get("STUDIO_TOKEN_FILE")
+    if override:
+        return Path(override)
+    return CONFIG.session_token_file
 
 
 def load_or_create_token() -> str:
@@ -53,7 +57,10 @@ def load_or_create_token() -> str:
     if _TOKEN:
         return _TOKEN
 
-    env = os.environ.get("SESSION_TOKEN")
+    # Read env first so tests that monkeypatch don't need to reload CONFIG.
+    import os as _os
+
+    env = _os.environ.get("SESSION_TOKEN") or CONFIG.session_token_env
     if env:
         _TOKEN = env
         return _TOKEN

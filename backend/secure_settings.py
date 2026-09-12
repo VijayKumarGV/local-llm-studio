@@ -25,6 +25,8 @@ import logging
 import os
 from typing import Any
 
+from backend.config import CONFIG
+
 log = logging.getLogger("studio.secure_settings")
 
 SERVICE = "LocalLLMStudio"
@@ -60,7 +62,7 @@ def _kr() -> Any:
 def get_secret(key: str) -> str | None:
     if not is_sensitive(key):
         raise ValueError(f"{key!r} is not in the sensitive-key allowlist")
-    if os.environ.get("STUDIO_DISABLE_KEYRING"):
+    if os.environ.get("STUDIO_DISABLE_KEYRING") or CONFIG.disable_keyring:
         return None
     kr = _kr()
     if kr is None:
@@ -93,7 +95,7 @@ def merge_into(settings: dict[str, str]) -> dict[str, str]:
     """Overlay Keychain values on top of a plain settings dict. Keys the
     Keychain doesn't have are left untouched. Non-sensitive keys never
     touched."""
-    if os.environ.get("STUDIO_DISABLE_KEYRING"):
+    if os.environ.get("STUDIO_DISABLE_KEYRING") or CONFIG.disable_keyring:
         return settings
     out = dict(settings)
     for key in _SENSITIVE:

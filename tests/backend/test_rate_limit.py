@@ -40,11 +40,13 @@ def client_with_tight_sandbox(fresh_schema: str, monkeypatch: pytest.MonkeyPatch
 
     auth_module.reset_token_cache()
 
-    # Reload rate_limit module + server module so they pick up the tighter env.
+    # Reload config first so CONFIG.rate_limit_sandbox reflects the new env,
+    # then reload rate_limit + server so they re-read from CONFIG.
     import importlib
 
-    from backend import rate_limit
+    from backend import config, rate_limit
 
+    config.reload()
     importlib.reload(rate_limit)
     from backend import server as server_module
 

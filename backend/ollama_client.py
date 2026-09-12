@@ -4,11 +4,11 @@ Reuses a single httpx.AsyncClient so connections are pooled and streaming
 never blocks the event loop.
 """
 
-import os
-
 import httpx
 
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+from backend.config import CONFIG
+
+OLLAMA_HOST = CONFIG.ollama_host
 
 _client: httpx.AsyncClient | None = None
 

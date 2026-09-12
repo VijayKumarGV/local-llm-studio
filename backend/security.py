@@ -26,11 +26,13 @@ import subprocess
 import sys
 from typing import Any
 
+from backend.config import CONFIG
+
 log = logging.getLogger("studio.security")
 
 WORKSPACE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAX_STDOUT_BYTES = 50 * 1024  # 50 KB max stdout/stderr
-SANDBOX_IMAGE = os.environ.get("STUDIO_SANDBOX_IMAGE", "studio-sandbox:latest")
+SANDBOX_IMAGE = CONFIG.sandbox_image
 
 # macOS sandbox-exec profile: deny-by-default, allow read of stdlib and
 # read/write only under the scratch dir passed via parameter.
@@ -128,7 +130,9 @@ def _sandbox_kind() -> str:
         return "docker"
     if _ON_MACOS and SANDBOX_EXEC:
         return "sandbox-exec"
-    if os.environ.get("STUDIO_ALLOW_UNSANDBOXED"):
+    # Re-read from env, not CONFIG, so tests that monkeypatch env work without
+    # having to call config.reload().
+    if os.environ.get("STUDIO_ALLOW_UNSANDBOXED") or CONFIG.allow_unsandboxed:
         return "unsandboxed"
     return "unavailable"
 
