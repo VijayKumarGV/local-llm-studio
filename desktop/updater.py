@@ -22,7 +22,7 @@ log = logging.getLogger("studio.updater")
 
 # Bumped in lockstep with git tags. Kept in-source so a frozen .app can
 # tell whether it's stale without needing a manifest file.
-CURRENT_VERSION = "1.0.0-rc.1"
+CURRENT_VERSION = "1.0.0"
 
 
 def _semver_key(v: str) -> tuple[int, ...]:

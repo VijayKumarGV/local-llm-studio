@@ -4,12 +4,16 @@ All notable changes to Local LLM Studio are recorded here. This file
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 uses [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-rc.1] — 2026-09-12
+## [1.0.0] — 2026-09-12
 
-Release candidate for the first stable version. Contents mirror the
-twelve-week transformation from a working proof-of-concept into a
-professional-grade tool. See [`RELEASE_NOTES_v1.0.md`](docs/RELEASE_NOTES_v1.0.md)
-for the narrative.
+First stable release. Contents mirror the twelve-week transformation
+from a working proof-of-concept into a professional-grade tool. See
+[`docs/RELEASE_NOTES_v1.0.md`](docs/RELEASE_NOTES_v1.0.md) for the
+narrative.
+
+`v1.0.0-rc.1` (also tagged 2026-09-12) contained the same set — no
+changes between the RC and the final tag; the RC was pinned for the
+one-day dogfood sanity pass.
 
 ### Ship-readiness (Week 11)
 - **Tests** — coverage pushed to 65% with focused unit suites for
@@ -109,6 +113,6 @@ for the narrative.
 
 ---
 
-Prior to `v1.0.0-rc.1` the project was tracked as `v0.2.0` through
+Prior to `v1.0.0` the project was tracked as `v0.2.0` through
 `v0.11.0`; the intermediate tags remain in git but each week's contents
 are recorded above.
