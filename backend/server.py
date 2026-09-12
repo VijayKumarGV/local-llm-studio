@@ -78,7 +78,7 @@ async def lifespan(app: FastAPI):
     await close_ollama_client()
 
 
-app = FastAPI(title="Local LLM Studio API — M4 Pro Edition", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="Local LLM Studio API — M4 Pro Edition", version="1.0.0-rc.1", lifespan=lifespan)
 
 # Rate limiter — 120 req/min by default, tighter on hot endpoints below.
 app.state.limiter = limiter
