@@ -4,7 +4,7 @@ Local LLM Studio is designed as a **single-user, on-device** application. Everyt
 
 ## Reporting a vulnerability
 
-Email: **avishwakarma@netskope.com** with subject `[LLM-STUDIO-SECURITY]`. Please include:
+Email: **vijaykumargvishwakarma@gmail.com** with subject `[LLM-STUDIO-SECURITY]`. Please include:
 
 - Affected version / commit SHA
 - Reproduction steps

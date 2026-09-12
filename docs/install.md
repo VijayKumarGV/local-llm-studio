@@ -16,7 +16,7 @@ Ships an Ollama container + the studio container, both bound to
 `127.0.0.1` only.
 
 ```sh
-git clone https://github.com/avishwakarma/local-llm-studio.git
+git clone https://github.com/VijayKumarGV/local-llm-studio.git
 cd local-llm-studio
 docker compose up -d
 ./scripts/first_run.sh    # pulls models, curates corpus, provisions workspaces
@@ -34,7 +34,7 @@ the cookie.
 ## B. Bare metal (dev)
 
 ```sh
-git clone https://github.com/avishwakarma/local-llm-studio.git
+git clone https://github.com/VijayKumarGV/local-llm-studio.git
 cd local-llm-studio
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
@@ -67,7 +67,7 @@ open dist/LocalLLMStudio.app
 ```
 
 First launch is unsigned; right-click → Open to bypass Gatekeeper.
-See [`desktop/README.md`](https://github.com/avishwakarma/local-llm-studio/tree/main/desktop)
+See [`desktop/README.md`](https://github.com/VijayKumarGV/local-llm-studio/tree/main/desktop)
 for signing + notarization.
 
 ## D. Optional observability stack

@@ -79,7 +79,7 @@ composes those pieces into a tool you'd actually reach for.
   buttons when whisper / piper aren't present.
 
 Full CHANGELOG entry:
-[`CHANGELOG.md`](https://github.com/avishwakarma/local-llm-studio/blob/main/CHANGELOG.md).
+[`CHANGELOG.md`](https://github.com/VijayKumarGV/local-llm-studio/blob/main/CHANGELOG.md).
 
 ## Deferred
 
@@ -97,7 +97,7 @@ Full CHANGELOG entry:
 ## Where to file feedback
 
 - Bugs / feature requests → GitHub Issues.
-- Security → [`SECURITY.md`](https://github.com/avishwakarma/local-llm-studio/blob/main/SECURITY.md). Do not open a public
+- Security → [`SECURITY.md`](https://github.com/VijayKumarGV/local-llm-studio/blob/main/SECURITY.md). Do not open a public
   issue.
 - Docs typo? PR against `docs/*.md` — CI enforces
   `mkdocs build --strict`.

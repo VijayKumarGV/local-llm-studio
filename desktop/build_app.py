@@ -40,7 +40,7 @@ def build() -> None:
         "--onedir",
         "--noconfirm",
         "--clean",
-        "--osx-bundle-identifier=com.avishwakarma.local-llm-studio",
+        "--osx-bundle-identifier=com.vijaykumargv.local-llm-studio",
         f"--distpath={ROOT / 'dist'}",
         f"--workpath={ROOT / 'build'}",
         f"--specpath={ROOT / 'build'}",

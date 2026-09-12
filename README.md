@@ -9,7 +9,7 @@ Built for Apple M4 Pro-class hardware (32B parameter models fit
 comfortably in 37 GB unified memory); works on any machine Ollama runs
 on.
 
-<sub>Documentation: [avishwakarma.github.io/local-llm-studio](https://avishwakarma.github.io/local-llm-studio/)
+<sub>Documentation: [vijaykumargv.github.io/local-llm-studio](https://vijaykumargv.github.io/local-llm-studio/)
 · Changelog: [`CHANGELOG.md`](CHANGELOG.md) · Privacy:
 [`PRIVACY.md`](PRIVACY.md) · License: Apache-2.0</sub>
 
@@ -62,7 +62,7 @@ Two supported paths — pick one.
 ### Docker (recommended)
 
 ```sh
-git clone https://github.com/avishwakarma/local-llm-studio.git
+git clone https://github.com/VijayKumarGV/local-llm-studio.git
 cd local-llm-studio
 docker compose up -d
 ./scripts/first_run.sh        # pulls models, corpus, workspaces
@@ -81,7 +81,7 @@ cookie carries you.
 ### Bare metal (dev)
 
 ```sh
-git clone https://github.com/avishwakarma/local-llm-studio.git
+git clone https://github.com/VijayKumarGV/local-llm-studio.git
 cd local-llm-studio
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt

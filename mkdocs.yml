@@ -1,7 +1,7 @@
 site_name: Local LLM Studio
 site_description: FastAPI + SPA local-first LLM workspace fronting Ollama, tuned for Apple M4 Pro.
-site_url: https://avishwakarma.github.io/local-llm-studio/
-repo_url: https://github.com/avishwakarma/local-llm-studio
+site_url: https://vijaykumargv.github.io/local-llm-studio/
+repo_url: https://github.com/VijayKumarGV/local-llm-studio
 repo_name: local-llm-studio
 edit_uri: edit/main/docs/
 copyright: Copyright &copy; 2026 Local LLM Studio contributors — MIT-licensed docs.

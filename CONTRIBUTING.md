@@ -14,7 +14,7 @@ short and specific — for anyone opening a PR.
 ## Set up
 
 ```sh
-git clone https://github.com/avishwakarma/local-llm-studio.git
+git clone https://github.com/VijayKumarGV/local-llm-studio.git
 cd local-llm-studio
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
