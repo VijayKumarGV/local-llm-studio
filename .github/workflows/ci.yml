@@ -10,7 +10,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  # Job id is the status-check "context" — keep in sync with the branch
+  # protection rule on `main`.
+  CI:
     runs-on: macos-14  # Apple Silicon runner — matches the target dev machine
     timeout-minutes: 15
 

@@ -1,10 +1,12 @@
 name: E2E (Playwright)
 
 # Kept separate from the unit-test CI so a browser flake never blocks
-# a release. Runs on merge to main and on demand.
+# a release. Runs on merge to main, on every pull request, and on
+# demand.
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
@@ -12,7 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  chromium:
+  # Job id is the status-check "context" — keep in sync with the branch
+  # protection rule on `main`.
+  E2E:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
