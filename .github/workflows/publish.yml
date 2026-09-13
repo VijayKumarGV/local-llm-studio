@@ -25,7 +25,7 @@ jobs:
       id-token: write   # for future cosign / OIDC signing
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up QEMU (for arm64 emulation on x64 runners)
         uses: docker/setup-qemu-action@v3
@@ -86,7 +86,7 @@ jobs:
     if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
       - name: Build (no push)
         uses: docker/build-push-action@v5
