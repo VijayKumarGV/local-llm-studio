@@ -8,7 +8,7 @@
 #   - --cap-drop=ALL + --security-opt=no-new-privileges
 #
 # Build once:   docker build -f docker/sandbox.Dockerfile -t studio-sandbox:latest docker/
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 RUN adduser --disabled-password --gecos '' --uid 1500 sandbox
 USER sandbox
